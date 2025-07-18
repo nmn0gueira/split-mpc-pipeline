@@ -1,0 +1,9 @@
+[submodule "Private-ID"]
+	path = match/Private-ID
+	url = https://github.com/facebookresearch/Private-ID
+[submodule "Kunlun"]
+	path = match/Kunlun
+	url = https://github.com/nmn0gueira/Kunlun
+[submodule "volepsi"]
+	path = match/volepsi
+	url = https://github.com/nmn0gueira/volepsi
