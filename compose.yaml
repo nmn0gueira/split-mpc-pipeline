@@ -1,0 +1,90 @@
+# Environment variables need to be set for composing (e.g., export PROGRAM=linreg)
+# If you want to run the dealer, use docker-compose --profile dealer up
+# If you want docker compose to make use of docker build cache, you need to set all the arguments defined here when building with docker build (even if they are the same as the defaults)
+
+services:
+  alice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Buildenv arguments
+        arch: native
+        cxx: clang++-11
+        use_ntl: 1
+        prep_dir: "Player-Data"
+        ssl_dir: "Player-Data"
+        cryptoplayers: 3
+        # Machine arguments
+        machine: ${MACHINE}-party.x
+        gfp_mod_sz: 2 # only for gfp
+        ring_size: 256 # only for ring protocols
+        # Program arguments
+        src: ${SRC}
+        compile_options: ${COMPILE_OPTIONS_GLOBAL} ${COMPILE_OPTIONS_ALICE}
+        input_options: party0 ${INPUT_OPTIONS_GLOBAL} ${INPUT_OPTIONS_ALICE}
+      cache_from:
+        - mpspdz:${MACHINE}
+        - mpspdz:buildenv
+    networks:
+      - mynet
+    command: ./${MACHINE}-party.x 0 ${PROGRAM} -h alice ${EXTRA_ARGS}
+  bob:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Buildenv arguments
+        arch: native
+        cxx: clang++-11
+        use_ntl: 1
+        prep_dir: "Player-Data"
+        ssl_dir: "Player-Data"
+        cryptoplayers: 3
+        # Machine arguments
+        machine: ${MACHINE}-party.x
+        gfp_mod_sz: 2 # only for gfp
+        ring_size: 256 # only for ring protocols
+        # Program arguments
+        src: ${SRC}
+        compile_options: ${COMPILE_OPTIONS_GLOBAL} ${COMPILE_OPTIONS_BOB}
+        input_options: party1 ${INPUT_OPTIONS_GLOBAL} ${INPUT_OPTIONS_BOB}
+      cache_from:
+        - mpspdz:${MACHINE}
+        - mpspdz:buildenv
+    networks:
+      - mynet
+    command: ./${MACHINE}-party.x 1 ${PROGRAM} -h alice ${EXTRA_ARGS}
+
+  dealer:
+    profiles:
+      - dealer
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Buildenv arguments
+        arch: native
+        cxx: clang++-11
+        use_ntl: 1
+        prep_dir: "Player-Data"
+        ssl_dir: "Player-Data"
+        cryptoplayers: 3
+        # Machine arguments
+        machine: ${MACHINE}-party.x
+        gfp_mod_sz: 2 # only for gfp
+        ring_size: 256 # only for ring protocols
+        # Program arguments
+        src: ${SRC}
+        compile_options: ${COMPILE_OPTIONS_GLOBAL} ${COMPILE_OPTIONS_DEALER}
+        input_options: ""
+      cache_from:
+        - mpspdz:${MACHINE}
+        - mpspdz:buildenv
+    networks:
+      - mynet
+    command: ./${MACHINE}-party.x 2 ${PROGRAM} -h alice ${EXTRA_ARGS}
+
+networks:
+  mynet:
+    driver: bridge
