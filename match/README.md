@@ -1,0 +1,3 @@
+- Mention floating point problems with cpsi and ps3i and keep a note of the outline in the README of the matching protocols
+- Mention what each submodule is, why we want them and what they do. Mention papers as well	
+- Go through each matching protocol and their pros and cons, then go through each submodule
