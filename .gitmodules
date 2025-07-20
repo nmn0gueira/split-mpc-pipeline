@@ -4,6 +4,7 @@
 [submodule "Kunlun"]
 	path = match/Kunlun
 	url = https://github.com/nmn0gueira/Kunlun
+	ignore = all
 [submodule "volepsi"]
 	path = match/volepsi
 	url = https://github.com/nmn0gueira/volepsi
