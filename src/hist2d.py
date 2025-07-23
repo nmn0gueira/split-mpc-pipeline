@@ -122,31 +122,32 @@ def hist2d(flag, A, B, edges_x, edges_y):
     assert num_rows == B.shape[0], "A and B must have the same number of rows"
     
     nx = edges_x.shape[0]-1; ny = edges_y.shape[0]-1
-
-    H = Matrix(ny, nx, sint); H.assign_all(0)
-
+    bins_x = range(nx)
+    bins_y = range(ny)
+    H = Matrix(ny, nx, sint)
+    
     if flag:
         @for_range_opt(num_rows)
         def _(i):
             ix = digitize(A[i], edges_x)
             iy = digitize(B[i], edges_y)
-            for y in range(ny):
+            for y in bins_y:
                 m = (iy==y) * flag[i]
-                for x in range(nx):
+                for x in bins_x:
                     H[y][x] += (ix==x) * m
     else:
         @for_range_opt(num_rows)
         def _(i):
             ix = digitize(A[i], edges_x)
             iy = digitize(B[i], edges_y)
-            for y in range(ny):
+            for y in bins_y:
                 m = iy==y
-                for x in range(nx):
+                for x in bins_x:
                     H[y][x] += (ix==x) * m
 
     print_ln("Histogram 2D:")
-    for y in range(ny):
-        for x in range(nx):
+    for y in bins_y:
+        for x in bins_x:
             print_ln("H[%s][%s]=%s", y, x, H[y][x].reveal())
 
 
