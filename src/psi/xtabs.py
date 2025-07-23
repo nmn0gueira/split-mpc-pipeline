@@ -66,16 +66,16 @@ def get_matrix(rows, cols, secret_type):
 
 
 
-def xtabs_sum1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len):
-    group_by_col = get_array(max_rows, group_by, stype_cmp)
+def xtabs_sum1(max_rows, group_by, value_col, stype_val, cat_len):
+    group_by_col = get_array(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Array(cat_len, stype_val)
-    categories = Array(cat_len, ctype)
+    categories = Array(cat_len, cint)
 
     for i in range(cat_len):
         sums[i] = stype_val(0)
-        categories[i] = ctype(i)
+        categories[i] = cint(i)
 
     @for_range_opt(max_rows)
     def _(i):
@@ -87,23 +87,23 @@ def xtabs_sum1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
         print_ln("Sum %s: %s", i, sums[i].reveal())
 
 
-def xtabs_sum2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by, stype_cmp)
+def xtabs_sum2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
+    group_by_cols = get_matrix(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
-    categories_1 = Array(cat_len_1, ctype)
-    categories_2 = Array(cat_len_2, ctype)
+    categories_1 = Array(cat_len_1, cint)
+    categories_2 = Array(cat_len_2, cint)
 
     for i in range(cat_len_1):
         for j in range(cat_len_2):
             sums[i] = stype_val(0)
 
     for i in range(cat_len_1):
-        categories_1[i] = ctype(i)
+        categories_1[i] = cint(i)
 
     for i in range(cat_len_2):
-        categories_2[i] = ctype(i)
+        categories_2[i] = cint(i)
 
     @for_range_opt(max_rows)
     def _(i):
@@ -119,18 +119,18 @@ def xtabs_sum2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
             print_ln("Sum (%s, %s): %s", i, j, sums[i][j].reveal())
 
 
-def xtabs_avg1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len):
-    group_by_col = get_array(max_rows, group_by, stype_cmp)
+def xtabs_avg1(max_rows, group_by, value_col, stype_val, cat_len):
+    group_by_col = get_array(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Array(cat_len, stype_val)
-    counts = Array(cat_len, stype_cmp)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories = Array(cat_len, ctype)
+    counts = Array(cat_len, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
+    categories = Array(cat_len, cint)
 
     for i in range(cat_len):
         sums[i] = stype_val(0)
-        counts[i] = stype_cmp(0)
-        categories[i] = ctype(i)
+        counts[i] = sint(0)
+        categories[i] = cint(i)
 
     
     @for_range_opt(max_rows)
@@ -145,25 +145,25 @@ def xtabs_avg1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
         print_ln("Avg %s: %s", i, (sums[i] / counts[i]).reveal())
 
 
-def xtabs_avg2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by, stype_cmp)
+def xtabs_avg2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
+    group_by_cols = get_matrix(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
-    counts = Matrix(cat_len_1, cat_len_2, stype_cmp)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories_1 = Array(cat_len_1, ctype)
-    categories_2 = Array(cat_len_2, ctype)
+    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
+    categories_1 = Array(cat_len_1, cint)
+    categories_2 = Array(cat_len_2, cint)
 
     for i in range(cat_len_1):
         for j in range(cat_len_2):
             sums[i][j] = stype_val(0)
-            counts[i][j] = stype_cmp(0)
+            counts[i][j] = sint(0)
 
     for i in range(cat_len_1):
-        categories_1[i] = ctype(i)
+        categories_1[i] = cint(i)
 
     for i in range(cat_len_2):
-        categories_2[i] = ctype(i)
+        categories_2[i] = cint(i)
 
     @for_range_opt(max_rows)
     def _(i):
@@ -180,21 +180,21 @@ def xtabs_avg2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
             print_ln("Avg (%s, %s): %s", i, j, (sums[i][j] / counts[i][j]).reveal())
 
 
-def xtabs_std1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len, ddof=0):
-    group_by_col = get_array(max_rows, group_by, stype_cmp)
+def xtabs_std1(max_rows, group_by, value_col, stype_val, cat_len, ddof=0):
+    group_by_col = get_array(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Array(cat_len, stype_val)
-    counts = Array(cat_len, stype_cmp)
-    categories = Array(cat_len, ctype)
+    counts = Array(cat_len, sint)
+    categories = Array(cat_len, cint)
     # For now this is like this since this aggregation will only work in arithmetic circuits anyway
     averages = Array(cat_len, sfix)
     variances = Array(cat_len, sfix)
 
     for i in range(cat_len):
         sums[i] = stype_val(0)
-        counts[i] = stype_cmp(0)
-        categories[i] = ctype(i)
+        counts[i] = sint(0)
+        categories[i] = cint(i)
         variances[i] = sfix(0)
 
 
@@ -219,14 +219,14 @@ def xtabs_std1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
         print_ln("Std %s: %s", i, sqrt(variances[i] / (counts[i] - ddof)).reveal())
 
 
-def xtabs_std2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2, ddof=0):
-    group_by_cols = get_matrix(max_rows, group_by, stype_cmp)
+def xtabs_std2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2, ddof=0):
+    group_by_cols = get_matrix(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
-    counts = Matrix(cat_len_1, cat_len_2, stype_cmp)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories_1 = Array(cat_len_1, ctype)
-    categories_2 = Array(cat_len_2, ctype)   
+    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
+    categories_1 = Array(cat_len_1, cint)
+    categories_2 = Array(cat_len_2, cint)   
     # For now this is like this since this aggregation will only work in arithmetic circuits anyway
     averages = Matrix(cat_len_1, cat_len_2, sfix)
     variances = Matrix(cat_len_1, cat_len_2, sfix)
@@ -234,14 +234,14 @@ def xtabs_std2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
     for i in range(cat_len_1):
         for j in range(cat_len_2):
             sums[i][j] = stype_val(0)
-            counts[i][j] = stype_cmp(0)
+            counts[i][j] = sint(0)
             variances[i][j] = sfix(0)
 
     for i in range(cat_len_1):
-        categories_1[i] = ctype(i)
+        categories_1[i] = cint(i)
 
     for i in range(cat_len_2):
-        categories_2[i] = ctype(i)
+        categories_2[i] = cint(i)
 
     @for_range_opt(max_rows)
     def _(i):
@@ -271,22 +271,22 @@ def xtabs_std2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
             print_ln("Std %s: %s", i, sqrt(variances[i][j] / (counts[i][j] - ddof)).reveal())
 
 
-def xtabs_freq(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by, stype_cmp)
+def xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2):
+    group_by_cols = get_matrix(max_rows, group_by, sint)
 
-    counts = Matrix(cat_len_1, cat_len_2, stype_cmp)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories_1 = Array(cat_len_1, ctype)
-    categories_2 = Array(cat_len_2, ctype)
+    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
+    categories_1 = Array(cat_len_1, cint)
+    categories_2 = Array(cat_len_2, cint)
 
     for i in range(cat_len_1):
         for j in range(cat_len_2):
-            counts[i][j] = stype_cmp(0)
+            counts[i][j] = sint(0)
 
     for i in range(cat_len_1):
-        categories_1[i] = ctype(i)
+        categories_1[i] = cint(i)
 
     for i in range(cat_len_2):
-        categories_2[i] = ctype(i)
+        categories_2[i] = cint(i)
 
     @for_range_opt(max_rows)
     def _(i):
@@ -301,23 +301,23 @@ def xtabs_freq(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2):
             print_ln("Freq (%s, %s): %s", i, j, counts[i][j].reveal())
 
 
-def xtabs_mode(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by, stype_cmp)
+def xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2):
+    group_by_cols = get_matrix(max_rows, group_by, sint)
 
-    counts = Matrix(cat_len_1, cat_len_2, stype_cmp)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    modes = Array(cat_len_1, stype_cmp)
-    categories_1 = Array(cat_len_1, ctype)
-    categories_2 = Array(cat_len_2, ctype)
+    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
+    modes = Array(cat_len_1, sint)
+    categories_1 = Array(cat_len_1, cint)
+    categories_2 = Array(cat_len_2, cint)
 
     for i in range(cat_len_1):
         for j in range(cat_len_2):
-            counts[i][j] = stype_cmp(0)
+            counts[i][j] = sint(0)
 
     for i in range(cat_len_1):
-        categories_1[i] = ctype(i)
+        categories_1[i] = cint(i)
 
     for i in range(cat_len_2):
-        categories_2[i] = ctype(i)
+        categories_2[i] = cint(i)
 
     @for_range_opt(max_rows)
     def _(i):
@@ -328,8 +328,8 @@ def xtabs_mode(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2):
 
     
     for i in range(cat_len_1):
-        max_value = stype_cmp(0)
-        mode = stype_cmp(-1)
+        max_value = sint(0)
+        mode = sint(-1)
         for j in range(cat_len_2):
             geq = counts[i][j] > max_value
             max_value = mux(geq, counts[i][j], max_value)
@@ -341,13 +341,13 @@ def xtabs_mode(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2):
         print_ln("Mode %s: %s", i, modes[i].reveal())
 
 
-def xtabs_1(aggregation, max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len):
+def xtabs_1(aggregation, max_rows, group_by, value_col, stype_val, cat_len):
     if aggregation == 'sum':
-        xtabs_sum1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len)
+        xtabs_sum1(max_rows, group_by, value_col, stype_val, cat_len)
     elif aggregation == 'avg':
-        xtabs_avg1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len)
+        xtabs_avg1(max_rows, group_by, value_col, stype_val, cat_len)
     elif aggregation == 'std':
-        xtabs_std1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len)
+        xtabs_std1(max_rows, group_by, value_col, stype_val, cat_len)
     elif aggregation == 'freq':
         raise ValueError("Frequency aggregation not supported for single column")
     elif aggregation == 'mode':
@@ -356,17 +356,17 @@ def xtabs_1(aggregation, max_rows, group_by, value_col, ctype, stype_cmp, stype_
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
 
-def xtabs_2(aggregation, max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2):
+def xtabs_2(aggregation, max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
     if aggregation == 'sum':
-        xtabs_sum2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2)
+        xtabs_sum2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'avg':
-        xtabs_avg2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2)
+        xtabs_avg2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'std':
-        xtabs_std2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_len_1, cat_len_2)
+        xtabs_std2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'freq':
-        xtabs_freq(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2)
+        xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2)
     elif aggregation == 'mode':
-        xtabs_mode(max_rows, group_by, ctype, stype_cmp, cat_len_1, cat_len_2)
+        xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2)
     else:
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
@@ -397,17 +397,15 @@ def main():
 
     compiler.prog.use_trunc_pr = True # Comment this line if the protocol cannot use probabilistic truncation
     #sfix.round_nearest= True
-    ctype = cint
-    stype_cmp = sint
     stype_val = sfix if 'fix' in compiler.prog.args else sint
 
     print_compiler_options(f"Compiling for arithmetic circuits with {stype_val} secret type")
 
     if num_group_by == 1:
-        xtabs_1(aggregation, max_rows, group_by, value_col, ctype, stype_cmp, stype_val, n_categories_1)
+        xtabs_1(aggregation, max_rows, group_by, value_col, stype_val, n_categories_1)
 
     elif num_group_by == 2:
-        xtabs_2(aggregation, max_rows, group_by, value_col, ctype, stype_cmp, stype_val, n_categories_1, n_categories_2)
+        xtabs_2(aggregation, max_rows, group_by, value_col, stype_val, n_categories_1, n_categories_2)
     else:
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
 
