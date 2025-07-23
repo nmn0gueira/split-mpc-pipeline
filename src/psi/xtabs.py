@@ -2,8 +2,6 @@ from Compiler.library import print_ln, for_range_opt
 from Compiler.compilerLib import Compiler
 from Compiler.mpc_math import sqrt
 from Compiler.types import sint, cint, sfix, Array, Matrix
-from Compiler.GC.types import sbitintvec, sbitfixvec
-from Compiler.oram import OptimalORAM
 
 usage = "usage: %prog [options] [args]"
 compiler = Compiler(usage=usage)
@@ -12,7 +10,7 @@ compiler.parser.add_option("--rows", dest="rows", type=int, help="Number of rows
 compiler.parser.add_option("--n_cat_1", dest="n_cat_1", default=4, type=int, help="Number of categories for the first aggregation column")
 compiler.parser.add_option("--n_cat_2", dest="n_cat_2", default=4, type=int, help="Number of categories for the second aggregation column (if applicable)")
 
-compiler.parser.add_option("--aggregation", dest="aggregation", type=str, help="Type of aggregation to be performed (sum, average, freq(uencies), st(d)ev)")
+compiler.parser.add_option("--aggregation", dest="aggregation", type=str, help="Type of aggregation to be performed (sum, avg, freq, mode, std")
 compiler.parser.add_option("--group_by", dest="group_by", type=str, help="Columns to group by (2 max) (e.g ab for Alice's first column and Bob's first column")
 compiler.parser.add_option("--value_col", dest="value_col", type=str, help="Value column (not needed for mode and freq.) (e.g b for Bob's column)")
 
@@ -82,7 +80,7 @@ def xtabs_sum1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
     @for_range_opt(max_rows)
     def _(i):
         for j in range(cat_len):
-            sums[j] += mux(group_by_col[i] == categories[j], values[i], 0)
+            sums[j] += (group_by_col[i] == categories[j]) * values[i]
 
     
     for i in range(cat_len):
@@ -112,7 +110,7 @@ def xtabs_sum2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
         for j in range(cat_len_1):
             match_1 = group_by_cols[i][0] == categories_1[j]
             for k in range(cat_len_2):
-                sums[j][k] += mux(match_1 & (group_by_cols[i][1] == categories_2[k]), values[i], 0)
+                sums[j][k] += (match_1 & (group_by_cols[i][1] == categories_2[k])) * values[i]
 
 
     
@@ -139,7 +137,7 @@ def xtabs_avg1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
     def _(i):
         for j in range(cat_len):
             full_match = group_by_col[i] == categories[j]
-            sums[j] += mux(full_match, values[i], 0)
+            sums[j] += full_match * values[i]
             counts[j] += full_match
 
     
@@ -173,7 +171,7 @@ def xtabs_avg2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
             match_1 = group_by_cols[i][0] == categories_1[j]
             for k in range(cat_len_2):
                 full_match = match_1 & (group_by_cols[i][1] == categories_2[k])
-                sums[j][k] += mux(full_match, values[i], 0)
+                sums[j][k] += full_match * values[i]
                 counts[j][k] += full_match
 
     
@@ -204,7 +202,7 @@ def xtabs_std1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
     def _(i):
         for j in range(cat_len):
             full_match = group_by_col[i] == categories[j]
-            sums[j] += mux(full_match, values[i], 0)
+            sums[j] += full_match * values[i]
             counts[j] += full_match
 
     
@@ -214,7 +212,7 @@ def xtabs_std1(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
     @for_range_opt(max_rows)
     def _(i):
         for j in range(cat_len):
-            variances[j] += mux(group_by_col[i] == categories[j], (values[i] - averages[j]) ** 2, 0)
+            variances[j] += (group_by_col[i] == categories[j]) * ((values[i] - averages[j]) ** 2)
 
 
     for i in range(cat_len):
@@ -251,7 +249,7 @@ def xtabs_std2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
             match_1 = group_by_cols[i][0] == categories_1[j]
             for k in range(cat_len_2):
                 full_match = match_1 & (group_by_cols[i][1] == categories_2[k])
-                sums[j][k] += mux(full_match, values[i], 0)
+                sums[j][k] += full_match * values[i]
                 counts[j][k] += full_match
     
 
@@ -265,7 +263,7 @@ def xtabs_std2(max_rows, group_by, value_col, ctype, stype_cmp, stype_val, cat_l
         for j in range(cat_len_1):
             match_1 = group_by_cols[i][0] == categories_1[j]
             for k in range(cat_len_2):
-                variances[j][k] += mux(match_1 & (group_by_cols[i][1] == categories_2[k]), (values[i] - averages[j][k]) ** 2, 0)
+                variances[j][k] += (match_1 & (group_by_cols[i][1] == categories_2[k])) * ((values[i] - averages[j][k]) ** 2)
     
 
     for i in range(cat_len_1):
@@ -397,28 +395,13 @@ def main():
     value_col = compiler.options.value_col
     num_group_by = len(group_by)
 
-    ctype = None
-    stype_cmp = None
-    stype_val = None
-    compiler_message = None
+    compiler.prog.use_trunc_pr = True # Comment this line if the protocol cannot use probabilistic truncation
+    #sfix.round_nearest= True
+    ctype = cint
+    stype_cmp = sint
+    stype_val = sfix if 'fix' in compiler.prog.args else sint
 
-    fixed = 'fix' in compiler.prog.args
-
-    if compiler.prog.options.binary != 0: # If program is being compiled for binary circuits
-        ctype = sbitintvec.get_type(int(compiler.prog.options.binary)) # In binary circuits there is no useful clear type for our purposes
-        stype_cmp = ctype
-        stype_val = sbitfixvec if fixed else stype_cmp
-        compiler_message = f"Compiling for binary circuits with {stype_val} secret type"
-
-    else:
-        compiler.prog.use_trunc_pr = True # Comment this line if the protocol cannot use probabilistic truncation
-        #sfix.round_nearest= True
-        ctype = cint
-        stype_cmp = sint
-        stype_val = sfix if fixed else sint
-        compiler_message = f"Compiling for arithmetic circuits with {stype_val} secret type"
-
-    print_compiler_options(compiler_message)
+    print_compiler_options(f"Compiling for arithmetic circuits with {stype_val} secret type")
 
     if num_group_by == 1:
         xtabs_1(aggregation, max_rows, group_by, value_col, ctype, stype_cmp, stype_val, n_categories_1)
