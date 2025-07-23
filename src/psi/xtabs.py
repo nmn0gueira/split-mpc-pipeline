@@ -65,26 +65,21 @@ def get_matrix(rows, cols, secret_type):
     return matrix
 
 
-
 def xtabs_sum1(max_rows, group_by, value_col, stype_val, cat_len):
     group_by_col = get_array(max_rows, group_by, sint)
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Array(cat_len, stype_val)
-    categories = Array(cat_len, cint)
-
-    for i in range(cat_len):
-        sums[i] = stype_val(0)
-        categories[i] = cint(i)
+    categories = range(cat_len)
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len):
-            sums[j] += (group_by_col[i] == categories[j]) * values[i]
+        for category in categories:
+            sums[category] += (group_by_col[i] == category) * values[i]
 
     
-    for i in range(cat_len):
-        print_ln("Sum %s: %s", i, sums[i].reveal())
+    for category in categories:
+        print_ln("Sum %s: %s", category, sums[category].reveal())
 
 
 def xtabs_sum2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
@@ -92,31 +87,20 @@ def xtabs_sum2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
-    categories_1 = Array(cat_len_1, cint)
-    categories_2 = Array(cat_len_2, cint)
-
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            sums[i] = stype_val(0)
-
-    for i in range(cat_len_1):
-        categories_1[i] = cint(i)
-
-    for i in range(cat_len_2):
-        categories_2[i] = cint(i)
+    categories_1 = range(cat_len_1)
+    categories_2 = range(cat_len_2)
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len_1):
-            match_1 = group_by_cols[i][0] == categories_1[j]
-            for k in range(cat_len_2):
-                sums[j][k] += (match_1 & (group_by_cols[i][1] == categories_2[k])) * values[i]
-
+        for category_1 in categories_1:
+            match_1 = group_by_cols[i][0] == category_1
+            for category_2 in categories_2:
+                sums[category_1][category_2] += (match_1 & (group_by_cols[i][1] == category_2)) * values[i]
 
     
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            print_ln("Sum (%s, %s): %s", i, j, sums[i][j].reveal())
+    for category_1 in categories_1:
+        for category_2 in categories_2:
+            print_ln("Sum (%s, %s): %s", category_1, category_2, sums[category_1][category_2].reveal())
 
 
 def xtabs_avg1(max_rows, group_by, value_col, stype_val, cat_len):
@@ -124,25 +108,19 @@ def xtabs_avg1(max_rows, group_by, value_col, stype_val, cat_len):
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Array(cat_len, stype_val)
-    counts = Array(cat_len, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories = Array(cat_len, cint)
-
-    for i in range(cat_len):
-        sums[i] = stype_val(0)
-        counts[i] = sint(0)
-        categories[i] = cint(i)
-
+    counts = Array(cat_len, sint)
+    categories = range(cat_len)
     
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len):
-            full_match = group_by_col[i] == categories[j]
-            sums[j] += full_match * values[i]
-            counts[j] += full_match
+        for category in categories:
+            full_match = group_by_col[i] == category
+            sums[category] += full_match * values[i]
+            counts[category] += full_match
 
     
-    for i in range(cat_len):
-        print_ln("Avg %s: %s", i, (sums[i] / counts[i]).reveal())
+    for category in categories:
+        print_ln("Avg %s: %s", category, (sums[category] / counts[category]).reveal())
 
 
 def xtabs_avg2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
@@ -150,34 +128,23 @@ def xtabs_avg2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2):
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
-    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories_1 = Array(cat_len_1, cint)
-    categories_2 = Array(cat_len_2, cint)
-
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            sums[i][j] = stype_val(0)
-            counts[i][j] = sint(0)
-
-    for i in range(cat_len_1):
-        categories_1[i] = cint(i)
-
-    for i in range(cat_len_2):
-        categories_2[i] = cint(i)
+    counts = Matrix(cat_len_1, cat_len_2, sint)
+    categories_1 = range(cat_len_1)
+    categories_2 = range(cat_len_2)
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len_1):
-            match_1 = group_by_cols[i][0] == categories_1[j]
-            for k in range(cat_len_2):
-                full_match = match_1 & (group_by_cols[i][1] == categories_2[k])
-                sums[j][k] += full_match * values[i]
-                counts[j][k] += full_match
+        for category_1 in categories_1:
+            match_1 = group_by_cols[i][0] == category_1
+            for category_2 in categories_2:
+                full_match = match_1 & (group_by_cols[i][1] == category_2)
+                sums[category_1][category_2] += full_match * values[i]
+                counts[category_1][category_2] += full_match
 
     
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            print_ln("Avg (%s, %s): %s", i, j, (sums[i][j] / counts[i][j]).reveal())
+    for category_1 in categories_1:
+        for category_2 in categories_2:
+            print_ln("Avg (%s, %s): %s", category_1, category_2, (sums[category_1][category_2] / counts[category_1][category_2]).reveal())
 
 
 def xtabs_std1(max_rows, group_by, value_col, stype_val, cat_len, ddof=0):
@@ -186,37 +153,28 @@ def xtabs_std1(max_rows, group_by, value_col, stype_val, cat_len, ddof=0):
 
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
-    categories = Array(cat_len, cint)
-    # For now this is like this since this aggregation will only work in arithmetic circuits anyway
+    categories = range(cat_len)
     averages = Array(cat_len, sfix)
     variances = Array(cat_len, sfix)
 
-    for i in range(cat_len):
-        sums[i] = stype_val(0)
-        counts[i] = sint(0)
-        categories[i] = cint(i)
-        variances[i] = sfix(0)
-
-
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len):
-            full_match = group_by_col[i] == categories[j]
-            sums[j] += full_match * values[i]
-            counts[j] += full_match
-
+        for category in categories:
+            full_match = group_by_col[i] == category
+            sums[category] += full_match * values[i]
+            counts[category] += full_match
     
-    for i in range(cat_len):
-        averages[i] = sums[i] / counts[i]
+    for category in categories:
+        averages[category] = sums[category] / counts[category]
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len):
-            variances[j] += (group_by_col[i] == categories[j]) * ((values[i] - averages[j]) ** 2)
+        for category in categories:
+            variances[category] += (group_by_col[i] == category) * ((values[i] - averages[category]) ** 2)
 
 
-    for i in range(cat_len):
-        print_ln("Std %s: %s", i, sqrt(variances[i] / (counts[i] - ddof)).reveal())
+    for category in categories:
+        print_ln("Std %s: %s", category, sqrt(variances[category] / (counts[category] - ddof)).reveal())
 
 
 def xtabs_std2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2, ddof=0):
@@ -224,121 +182,86 @@ def xtabs_std2(max_rows, group_by, value_col, stype_val, cat_len_1, cat_len_2, d
     values = get_array(max_rows, value_col, stype_val)
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
-    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories_1 = Array(cat_len_1, cint)
-    categories_2 = Array(cat_len_2, cint)   
-    # For now this is like this since this aggregation will only work in arithmetic circuits anyway
+    counts = Matrix(cat_len_1, cat_len_2, sint)
+    categories_1 = range(cat_len_1)
+    categories_2 = range(cat_len_2)  
     averages = Matrix(cat_len_1, cat_len_2, sfix)
     variances = Matrix(cat_len_1, cat_len_2, sfix)
 
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            sums[i][j] = stype_val(0)
-            counts[i][j] = sint(0)
-            variances[i][j] = sfix(0)
+    @for_range_opt(max_rows)
+    def _(i):
+        for category_1 in categories_1:
+            match_1 = group_by_cols[i][0] == category_1
+            for category_2 in categories_2:
+                full_match = match_1 & (group_by_cols[i][1] == category_2)
+                sums[category_1][category_2] += full_match * values[i]
+                counts[category_1][category_2] += full_match
 
-    for i in range(cat_len_1):
-        categories_1[i] = cint(i)
-
-    for i in range(cat_len_2):
-        categories_2[i] = cint(i)
+    for category_1 in categories_1:
+        for category_2 in categories_2:
+            averages[category_1][category_2] = sums[category_1][category_2] / counts[category_1][category_2]
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len_1):
-            match_1 = group_by_cols[i][0] == categories_1[j]
-            for k in range(cat_len_2):
-                full_match = match_1 & (group_by_cols[i][1] == categories_2[k])
-                sums[j][k] += full_match * values[i]
-                counts[j][k] += full_match
+        for category_1 in categories_1:
+            match_1 = group_by_cols[i][0] == category_1
+            for category_2 in categories_2:
+                variances[category_1][category_2] += (match_1 & (group_by_cols[i][1] == category_2)) * ((values[i] - averages[category_1][category_2]) ** 2)
     
 
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            averages[i][j] = sums[i][j] / counts[i][j]
-
-
-    @for_range_opt(max_rows)
-    def _(i):
-        for j in range(cat_len_1):
-            match_1 = group_by_cols[i][0] == categories_1[j]
-            for k in range(cat_len_2):
-                variances[j][k] += (match_1 & (group_by_cols[i][1] == categories_2[k])) * ((values[i] - averages[j][k]) ** 2)
-    
-
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            print_ln("Std %s: %s", i, sqrt(variances[i][j] / (counts[i][j] - ddof)).reveal())
+    for category_1 in categories_1:
+        for category_2 in categories_2:
+            print_ln("Std (%s, %s): %s", category_1, category_2, sqrt(variances[category_1][category_2] / (counts[category_1][category_2] - ddof)).reveal())
 
 
 def xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2):
     group_by_cols = get_matrix(max_rows, group_by, sint)
 
-    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
-    categories_1 = Array(cat_len_1, cint)
-    categories_2 = Array(cat_len_2, cint)
-
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            counts[i][j] = sint(0)
-
-    for i in range(cat_len_1):
-        categories_1[i] = cint(i)
-
-    for i in range(cat_len_2):
-        categories_2[i] = cint(i)
+    counts = Matrix(cat_len_1, cat_len_2, sint)
+    categories_1 = range(cat_len_1)
+    categories_2 = range(cat_len_2)
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len_1):
-            match_1 = group_by_cols[i][0] == categories_1[j]
-            for k in range(cat_len_2):
-                counts[j][k] += match_1 & (group_by_cols[i][1] == categories_2[k])
+        for category_1 in categories_1:
+            match_1 = group_by_cols[i][0] == category_1
+            for category_2 in categories_2:
+                counts[category_1][category_2] += match_1 & (group_by_cols[i][1] == category_2)
 
     
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            print_ln("Freq (%s, %s): %s", i, j, counts[i][j].reveal())
+    for category_1 in categories_1:
+        for category_2 in categories_2:
+            print_ln("Freq (%s, %s): %s", category_1, category_2, counts[category_1][category_2].reveal())
 
 
 def xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2):
     group_by_cols = get_matrix(max_rows, group_by, sint)
 
-    counts = Matrix(cat_len_1, cat_len_2, sint)  # Counts are always going to be the same as the secret type used for comparisons (which only depends on the computation domain)
+    counts = Matrix(cat_len_1, cat_len_2, sint)
     modes = Array(cat_len_1, sint)
-    categories_1 = Array(cat_len_1, cint)
-    categories_2 = Array(cat_len_2, cint)
-
-    for i in range(cat_len_1):
-        for j in range(cat_len_2):
-            counts[i][j] = sint(0)
-
-    for i in range(cat_len_1):
-        categories_1[i] = cint(i)
-
-    for i in range(cat_len_2):
-        categories_2[i] = cint(i)
+    categories_1 = range(cat_len_1)
+    categories_2 = range(cat_len_2)
 
     @for_range_opt(max_rows)
     def _(i):
-        for j in range(cat_len_1):
-            match_1 = group_by_cols[i][0] == categories_1[j]
-            for k in range(cat_len_2):
-                counts[j][k] += match_1 & (group_by_cols[i][1] == categories_2[k])
+        for category_1 in categories_1:
+            match_1 = group_by_cols[i][0] == category_1
+            for category_2 in categories_2:
+                counts[category_1][category_2] += match_1 & (group_by_cols[i][1] == category_2)
 
     
-    for i in range(cat_len_1):
+    for category_1 in categories_1:
         max_value = sint(0)
         mode = sint(-1)
-        for j in range(cat_len_2):
-            geq = counts[i][j] > max_value
-            max_value = mux(geq, counts[i][j], max_value)
-            eq_max = counts[i][j] == max_value
-            mode = mux(eq_max, categories_2[j], mode)
-        modes[i] = mode
+        for category_2 in categories_2:
+            geq = counts[category_1][category_2] > max_value
+            max_value = mux(geq, counts[category_1][category_2], max_value)
+            eq_max = counts[category_1][category_2] == max_value
+            mode = mux(eq_max, category_2, mode)
+        modes[category_1] = mode
 
-    for i in range(cat_len_1):
-        print_ln("Mode %s: %s", i, modes[i].reveal())
+    for category_1 in categories_1:
+        print_ln("Mode %s: %s", category_1, modes[category_1].reveal())
 
 
 def xtabs_1(aggregation, max_rows, group_by, value_col, stype_val, cat_len):
