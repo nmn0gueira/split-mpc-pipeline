@@ -90,7 +90,6 @@ def hist_2d(max_rows, edges_df):
             for x in range(num_bins_x):
                 hist2d[y][x] += (bin_index_x == x) * match_y
 
-    # Reveal the histogram
     print_ln("Histogram 2D:")
     for i in range(num_bins_y):
         for j in range(num_bins_x):
@@ -107,7 +106,7 @@ def print_compiler_options():
 @compiler.register_function('hist2d')
 def main():
     max_rows = compiler.options.rows
-    edges_df = pd.read_csv('Player-Data/public/data.csv')
+    edges_df = pd.read_csv('Player-Data/public/data.csv', header=None)
 
     print_compiler_options()
     hist_2d(max_rows, edges_df)

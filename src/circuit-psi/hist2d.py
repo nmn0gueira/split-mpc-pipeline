@@ -10,6 +10,7 @@ compiler = Compiler(usage=usage)
 
 # Options for defining the input matrices and their dimensions
 compiler.parser.add_option("--rows", dest="rows", type=int, help="Number of rows for the inputs)")
+compiler.parser.add_option("--share_type", dest="share_type", type=str, default="xor", help="Type of sharing to use (default: xor)")
 compiler.parse_args()
 
 if not compiler.options.rows:
@@ -32,11 +33,28 @@ def get_bin_edges(values):
 def get_input(max_rows):
     alice = Array(max_rows, sint)
     bob = Array(max_rows, sint)
+    flag_bits = Array(max_rows, sint)
+
+    @for_range_opt(max_rows)
+    def _(i):
+        flag_bits[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % 2    
     
-    alice.input_from(0)
+    if compiler.options.share_type == 'add32':
+        two_32 = 2**32
+        @for_range_opt(max_rows)
+        def _(i):
+            alice[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % two_32
+
+    elif compiler.options.share_type == 'xor':
+        @for_range_opt(max_rows)
+        def _(i):
+            alice[i] = sint.bit_compose(x.bit_xor(y) for x, y in zip(sint.get_input_from(0).bit_decompose(), sint.get_input_from(1).bit_decompose()))
+    else:
+        raise ValueError(f"Unsupported share type '{compiler.options.share_type}'")
+
     bob.input_from(1)
 
-    return alice, bob
+    return flag_bits, alice, bob
 
 
 # Binning strategy: edge_1 < x <= edge_2
@@ -69,7 +87,7 @@ def hist_2d(max_rows, edges_df):
     num_bins_x = bin_edges_x.shape[0] - 1
     num_bins_y = bin_edges_y.shape[0] - 1
 
-    alice, bob = get_input(max_rows)
+    flag_bits, alice, bob = get_input(max_rows)
 
     hist2d = Matrix(num_bins_y, num_bins_x, sint)
     hist2d.assign_all(0)
@@ -81,7 +99,7 @@ def hist_2d(max_rows, edges_df):
         
         # For some reason using += instead of regular assignment performs quite a bit better
         for y in range(num_bins_y):
-            match_y = bin_index_y == y
+            match_y = (bin_index_y == y) * flag_bits[i]
             for x in range(num_bins_x):
                 hist2d[y][x] += (bin_index_x == x) * match_y
 
