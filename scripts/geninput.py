@@ -37,7 +37,7 @@ def write_to_csv(program, party, *columns):
     else:
         data["col0"] = columns
 
-    pd.DataFrame(data).to_csv(filepath, index=False)
+    pd.DataFrame(data).to_csv(filepath, index=False, header=False)
 
 
 def get_rand_list(bits, l):
