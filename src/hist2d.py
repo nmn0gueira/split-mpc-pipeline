@@ -11,8 +11,7 @@ compiler.parser.add_option("--protocol", dest="protocol",   type=str,
 compiler.parser.add_option("--share-type", dest="share_type", type=str,
                           default="xor", help="for cpsi: xor or add32")
 compiler.parse_args()
-opts = compiler.options
-if not opts.rows or not opts.protocol:
+if not compiler.options.rows or not compiler.options.protocol:
     compiler.parser.error("--rows and --protocol required")
 
 
@@ -28,6 +27,7 @@ def get_bin_edges(values):
     return edges
 
 def mux(c, t, f): return c.if_else(t, f)
+
 def digitize(v, edges):
     idx = sint(0)
     N = edges.shape[0]
@@ -38,14 +38,16 @@ def digitize(v, edges):
 
 class PsiInput:
     def get(self, R):
-        A = Array(R, sint); B = Array(R, sint)
+        A = Array(R, sint)
+        B = Array(R, sint)
         A.input_from(0); B.input_from(1)
         return None, A, B
 
 class PrivateIdInput:
     def get(self, R):
         flag = Array(R, sint)
-        A = Array(R, sint); B = Array(R, sint)
+        A = Array(R, sint)
+        B = Array(R, sint)
         @for_range_opt(R)
         def _(i):
             flag[i] = sint.get_input_from(0) * sint.get_input_from(1)
@@ -57,7 +59,8 @@ class CircuitPsiInput:
         self.share = share
     def get(self, R):
         flag = Array(R, sint)
-        A = Array(R, sint); B = Array(R, sint)
+        A = Array(R, sint)
+        B = Array(R, sint)
         @for_range_opt(R)
         def _(i):
             flag[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % 2
@@ -78,7 +81,8 @@ class CircuitPsiInput:
 
 class CrossPsiInput:
     def get(self, R):
-        A = Array(R, sint); B = Array(R, sint)
+        A = Array(R, sint)
+        B = Array(R, sint)
         mod = 2**64
         @for_range_opt(R)
         def _(i):
@@ -91,7 +95,8 @@ class CrossPsiInput:
 
 class CrossPsiXorInput:
     def get(self, R):
-        A = Array(R, sint); B = Array(R, sint)
+        A = Array(R, sint)
+        B = Array(R, sint)
         @for_range_opt(R)
         def _(i):
             A[i] = sint.bit_compose(x.bit_xor(y)
@@ -117,38 +122,39 @@ fact = {
 provider = fact[compiler.options.protocol]()
 
 
-def hist2d(flag, A, B, edges_x, edges_y):
-    num_rows = A.shape[0]
-    assert num_rows == B.shape[0], "A and B must have the same number of rows"
+def hist2d(flag, input_x, input_y, edges_x, edges_y):
+    num_rows = input_x.shape[0]
+    assert num_rows == input_y.shape[0], "input_x and input_y must have the same number of rows"
     
-    nx = edges_x.shape[0]-1; ny = edges_y.shape[0]-1
+    nx = edges_x.shape[0]-1
+    ny = edges_y.shape[0]-1
     bins_x = range(nx)
     bins_y = range(ny)
-    H = Matrix(ny, nx, sint)
+    hist2d = Matrix(ny, nx, sint)
     
     if flag:
         @for_range_opt(num_rows)
         def _(i):
-            ix = digitize(A[i], edges_x)
-            iy = digitize(B[i], edges_y)
+            ix = digitize(input_x[i], edges_x)
+            iy = digitize(input_y[i], edges_y)
             for y in bins_y:
                 m = (iy==y) * flag[i]
                 for x in bins_x:
-                    H[y][x] += (ix==x) * m
+                    hist2d[y][x] += (ix==x) * m
     else:
         @for_range_opt(num_rows)
         def _(i):
-            ix = digitize(A[i], edges_x)
-            iy = digitize(B[i], edges_y)
+            ix = digitize(input_x[i], edges_x)
+            iy = digitize(input_y[i], edges_y)
             for y in bins_y:
                 m = iy==y
                 for x in bins_x:
-                    H[y][x] += (ix==x) * m
+                    hist2d[y][x] += (ix==x) * m
 
     print_ln("Histogram 2D:")
     for y in bins_y:
         for x in bins_x:
-            print_ln("H[%s][%s]=%s", y, x, H[y][x].reveal())
+            print_ln("hist2d[%s][%s]=%s", y, x, hist2d[y][x].reveal())
 
 
 def print_compiler_options():
@@ -162,14 +168,13 @@ def print_compiler_options():
 
 @compiler.register_function('hist2d')
 def main():
-    R = compiler.options.rows
+    print_compiler_options()
     df = pd.read_csv('Player-Data/public/data.csv', header=None)
     edges_x = get_bin_edges(df.iloc[:,0].values)
     edges_y = get_bin_edges(df.iloc[:,1].values)
-
-    print_compiler_options()
-    flag, A, B = provider.get(R)
-    hist2d(flag, A, B, edges_x, edges_y)
+    
+    flag, alice, bob = provider.get(compiler.options.rows)
+    hist2d(flag, alice, bob, edges_x, edges_y)
 
 
 if __name__ == "__main__":
