@@ -65,27 +65,21 @@ def get_matrix(rows, column_spec, secret_type):
     return matrix
 
 
-def xtabs_sum1(max_rows, group_by_spec, value_source, stype_val, cat_len):
-    group_by_col = get_array(max_rows, group_by_spec, sint)
-    values = get_array(max_rows, value_source, stype_val)
-
+def xtabs_sum1(max_rows, group_by, values, stype_val, cat_len):
     sums = Array(cat_len, stype_val)
     categories = range(cat_len)
 
     @for_range_opt(max_rows)
     def _(i):
         for cat in categories:
-            sums[cat] += (group_by_col[i] == cat) * values[i]
+            sums[cat] += (group_by[i] == cat) * values[i]
 
     
     for cat in categories:
         print_ln("Sum %s: %s", cat, sums[cat].reveal())
 
 
-def xtabs_sum2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by_spec, sint)
-    values = get_array(max_rows, value_source, stype_val)
-
+def xtabs_sum2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
@@ -93,9 +87,9 @@ def xtabs_sum2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
     @for_range_opt(max_rows)
     def _(i):
         for cat_1 in categories_1:
-            match_1 = group_by_cols[i][0] == cat_1
+            match_1 = group_by[i][0] == cat_1
             for cat_2 in categories_2:
-                sums[cat_1][cat_2] += (match_1 & (group_by_cols[i][1] == cat_2)) * values[i]
+                sums[cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * values[i]
 
     
     for cat_1 in categories_1:
@@ -103,10 +97,7 @@ def xtabs_sum2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
             print_ln("Sum (%s, %s): %s", cat_1, cat_2, sums[cat_1][cat_2].reveal())
 
 
-def xtabs_avg1(max_rows, group_by_spec, value_source, stype_val, cat_len):
-    group_by_col = get_array(max_rows, group_by_spec, sint)
-    values = get_array(max_rows, value_source, stype_val)
-
+def xtabs_avg1(max_rows, group_by, values, stype_val, cat_len):
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
     categories = range(cat_len)
@@ -114,7 +105,7 @@ def xtabs_avg1(max_rows, group_by_spec, value_source, stype_val, cat_len):
     @for_range_opt(max_rows)
     def _(i):
         for cat in categories:
-            full_match = group_by_col[i] == cat
+            full_match = group_by[i] == cat
             sums[cat] += full_match * values[i]
             counts[cat] += full_match
 
@@ -123,10 +114,7 @@ def xtabs_avg1(max_rows, group_by_spec, value_source, stype_val, cat_len):
         print_ln("Avg %s: %s", cat, (sums[cat] / counts[cat]).reveal())
 
 
-def xtabs_avg2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by_spec, sint)
-    values = get_array(max_rows, value_source, stype_val)
-
+def xtabs_avg2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     counts = Matrix(cat_len_1, cat_len_2, sint)
     categories_1 = range(cat_len_1)
@@ -135,9 +123,9 @@ def xtabs_avg2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
     @for_range_opt(max_rows)
     def _(i):
         for cat_1 in categories_1:
-            match_1 = group_by_cols[i][0] == cat_1
+            match_1 = group_by[i][0] == cat_1
             for cat_2 in categories_2:
-                full_match = match_1 & (group_by_cols[i][1] == cat_2)
+                full_match = match_1 & (group_by[i][1] == cat_2)
                 sums[cat_1][cat_2] += full_match * values[i]
                 counts[cat_1][cat_2] += full_match
 
@@ -147,10 +135,7 @@ def xtabs_avg2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
             print_ln("Avg (%s, %s): %s", cat_1, cat_2, (sums[cat_1][cat_2] / counts[cat_1][cat_2]).reveal())
 
 
-def xtabs_std1(max_rows, group_by_spec, value_source, stype_val, cat_len, ddof=0):
-    group_by_col = get_array(max_rows, group_by_spec, sint)
-    values = get_array(max_rows, value_source, stype_val)
-
+def xtabs_std1(max_rows, group_by, values, stype_val, cat_len, ddof=0):
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
     categories = range(cat_len)
@@ -160,7 +145,7 @@ def xtabs_std1(max_rows, group_by_spec, value_source, stype_val, cat_len, ddof=0
     @for_range_opt(max_rows)
     def _(i):
         for cat in categories:
-            full_match = group_by_col[i] == cat
+            full_match = group_by[i] == cat
             sums[cat] += full_match * values[i]
             counts[cat] += full_match
     
@@ -170,17 +155,14 @@ def xtabs_std1(max_rows, group_by_spec, value_source, stype_val, cat_len, ddof=0
     @for_range_opt(max_rows)
     def _(i):
         for cat in categories:
-            variances[cat] += (group_by_col[i] == cat) * ((values[i] - averages[cat]) ** 2)
+            variances[cat] += (group_by[i] == cat) * ((values[i] - averages[cat]) ** 2)
 
 
     for cat in categories:
         print_ln("Std %s: %s", cat, sqrt(variances[cat] / (counts[cat] - ddof)).reveal())
 
 
-def xtabs_std2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2, ddof=0):
-    group_by_cols = get_matrix(max_rows, group_by_spec, sint)
-    values = get_array(max_rows, value_source, stype_val)
-
+def xtabs_std2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     counts = Matrix(cat_len_1, cat_len_2, sint)
     categories_1 = range(cat_len_1)
@@ -191,9 +173,9 @@ def xtabs_std2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
     @for_range_opt(max_rows)
     def _(i):
         for cat_1 in categories_1:
-            match_1 = group_by_cols[i][0] == cat_1
+            match_1 = group_by[i][0] == cat_1
             for cat_2 in categories_2:
-                full_match = match_1 & (group_by_cols[i][1] == cat_2)
+                full_match = match_1 & (group_by[i][1] == cat_2)
                 sums[cat_1][cat_2] += full_match * values[i]
                 counts[cat_1][cat_2] += full_match
 
@@ -204,9 +186,9 @@ def xtabs_std2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
     @for_range_opt(max_rows)
     def _(i):
         for cat_1 in categories_1:
-            match_1 = group_by_cols[i][0] == cat_1
+            match_1 = group_by[i][0] == cat_1
             for cat_2 in categories_2:
-                variances[cat_1][cat_2] += (match_1 & (group_by_cols[i][1] == cat_2)) * ((values[i] - averages[cat_1][cat_2]) ** 2)
+                variances[cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * ((values[i] - averages[cat_1][cat_2]) ** 2)
     
 
     for cat_1 in categories_1:
@@ -214,9 +196,7 @@ def xtabs_std2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_
             print_ln("Std (%s, %s): %s", cat_1, cat_2, sqrt(variances[cat_1][cat_2] / (counts[cat_1][cat_2] - ddof)).reveal())
 
 
-def xtabs_freq(max_rows, group_by_spec, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by_spec, sint)
-
+def xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2):
     counts = Matrix(cat_len_1, cat_len_2, sint)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
@@ -224,9 +204,9 @@ def xtabs_freq(max_rows, group_by_spec, cat_len_1, cat_len_2):
     @for_range_opt(max_rows)
     def _(i):
         for cat_1 in categories_1:
-            match_1 = group_by_cols[i][0] == cat_1
+            match_1 = group_by[i][0] == cat_1
             for cat_2 in categories_2:
-                counts[cat_1][cat_2] += match_1 & (group_by_cols[i][1] == cat_2)
+                counts[cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
 
     
     for cat_1 in categories_1:
@@ -234,9 +214,7 @@ def xtabs_freq(max_rows, group_by_spec, cat_len_1, cat_len_2):
             print_ln("Freq (%s, %s): %s", cat_1, cat_2, counts[cat_1][cat_2].reveal())
 
 
-def xtabs_mode(max_rows, group_by_spec, cat_len_1, cat_len_2):
-    group_by_cols = get_matrix(max_rows, group_by_spec, sint)
-
+def xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2):
     counts = Matrix(cat_len_1, cat_len_2, sint)
     modes = Array(cat_len_1, sint)
     categories_1 = range(cat_len_1)
@@ -245,9 +223,9 @@ def xtabs_mode(max_rows, group_by_spec, cat_len_1, cat_len_2):
     @for_range_opt(max_rows)
     def _(i):
         for cat_1 in categories_1:
-            match_1 = group_by_cols[i][0] == cat_1
+            match_1 = group_by[i][0] == cat_1
             for cat_2 in categories_2:
-                counts[cat_1][cat_2] += match_1 & (group_by_cols[i][1] == cat_2)
+                counts[cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
 
     
     for cat_1 in categories_1:
@@ -264,13 +242,13 @@ def xtabs_mode(max_rows, group_by_spec, cat_len_1, cat_len_2):
         print_ln("Mode %s: %s", cat_1, modes[cat_1].reveal())
 
 
-def xtabs_1(aggregation, max_rows, group_by_spec, value_source, stype_val, cat_len):
+def xtabs_1(aggregation, max_rows, group_by, values, stype_val, cat_len):
     if aggregation == 'sum':
-        xtabs_sum1(max_rows, group_by_spec, value_source, stype_val, cat_len)
+        xtabs_sum1(max_rows, group_by, values, stype_val, cat_len)
     elif aggregation == 'avg':
-        xtabs_avg1(max_rows, group_by_spec, value_source, stype_val, cat_len)
+        xtabs_avg1(max_rows, group_by, values, stype_val, cat_len)
     elif aggregation == 'std':
-        xtabs_std1(max_rows, group_by_spec, value_source, stype_val, cat_len)
+        xtabs_std1(max_rows, group_by, values, stype_val, cat_len)
     elif aggregation == 'freq':
         raise ValueError("Frequency aggregation not supported for single column")
     elif aggregation == 'mode':
@@ -279,17 +257,17 @@ def xtabs_1(aggregation, max_rows, group_by_spec, value_source, stype_val, cat_l
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
 
-def xtabs_2(aggregation, max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2):
+def xtabs_2(aggregation, max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
     if aggregation == 'sum':
-        xtabs_sum2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2)
+        xtabs_sum2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'avg':
-        xtabs_avg2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2)
+        xtabs_avg2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'std':
-        xtabs_std2(max_rows, group_by_spec, value_source, stype_val, cat_len_1, cat_len_2)
+        xtabs_std2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'freq':
-        xtabs_freq(max_rows, group_by_spec, cat_len_1, cat_len_2)
+        xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2)
     elif aggregation == 'mode':
-        xtabs_mode(max_rows, group_by_spec, cat_len_1, cat_len_2)
+        xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2)
     else:
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
@@ -325,10 +303,14 @@ def main():
     print_compiler_options(f"Compiling for arithmetic circuits with {stype_val} secret type")
 
     if num_group_by == 1:
-        xtabs_1(aggregation, max_rows, group_by_spec, value_source, stype_val, n_categories_1)
+        group_by = get_array(max_rows, group_by_spec, sint)
+        values = get_array(max_rows, value_source, stype_val)
+        xtabs_1(aggregation, max_rows, group_by, values, stype_val, n_categories_1)
 
     elif num_group_by == 2:
-        xtabs_2(aggregation, max_rows, group_by_spec, value_source, stype_val, n_categories_1, n_categories_2)
+        group_by = get_matrix(max_rows, group_by_spec, sint)
+        values = get_array(max_rows, value_source, stype_val) if value_source else None
+        xtabs_2(aggregation, max_rows, group_by, values, stype_val, n_categories_1, n_categories_2)
     else:
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
 
