@@ -8,6 +8,9 @@ compiler = Compiler(usage=usage)
 
 compiler.parser.add_option("--n_threads", dest="n_threads", type=int, default=1, help="Number of threads to use for parallel execution")
 
+compiler.parser.add_option("--protocol", dest="protocol", type=str, help="one of psi, cpsi, ps3i, ps3i-xor, pid")
+compiler.parser.add_option("--share-type", dest="share_type", type=str, default="xor", help="for cpsi: xor or add32")
+
 compiler.parser.add_option("--rows", dest="rows", type=int, help="Number of rows for the input matrices")
 compiler.parser.add_option("--n_cat_1", dest="n_cat_1", default=4, type=int, help="Number of categories for the first aggregation column")
 compiler.parser.add_option("--n_cat_2", dest="n_cat_2", default=4, type=int, help="Number of categories for the second aggregation column (if applicable)")
@@ -48,7 +51,6 @@ def threaded(n_threads, n_loops):
     return decorator
 
 
-
 def mux(cond, trueVal, falseVal):
     return cond.if_else(trueVal, falseVal)
 
@@ -85,11 +87,167 @@ def get_matrix(rows, column_spec, secret_type):
     return matrix
 
 
-def xtabs_sum1(rows, group_by, values, stype_val, cat_len):
+class PsiInput:
+    def get_flag(self, rows):
+        return None
+    
+    def get_array(self, rows, party, secret_type):
+        party = 0 if party == 'a' else 1
+        array = Array(rows, secret_type)
+        array.input_from(party)
+        return array
+
+    def get_matrix(self, rows, column_spec, secret_type):
+        alice_cols, bob_cols = parse_column_spec(column_spec)
+        matrix = Matrix(rows, len(column_spec), secret_type)
+        for i in range(alice_cols):
+            matrix.set_column(i, secret_type.get_input_from(0, size=rows)) 
+        for i in range(bob_cols):
+            matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))    
+        return matrix
+
+class PrivateIdInput:
+    def get_flag(self, rows):
+        flag = Array(rows, sint)
+        @for_range_opt(rows)
+        def _(i):
+            flag[i] = sint.get_input_from(0) * sint.get_input_from(1)
+        return flag
+    
+    def get_array(self, rows, party, secret_type):
+        party = 0 if party == 'a' else 1
+        array = Array(rows, secret_type)
+        array.input_from(party)
+        return array
+
+    def get_matrix(self, rows, column_spec, secret_type):
+        alice_cols, bob_cols = parse_column_spec(column_spec)
+        matrix = Matrix(rows, len(column_spec), secret_type)
+        for i in range(alice_cols):
+            matrix.set_column(i, secret_type.get_input_from(0, size=rows)) 
+        for i in range(bob_cols):
+            matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))    
+        return matrix
+
+class CircuitPsiInput:
+    def __init__(self, share):
+        self.share = share
+
+    def get_flag(self, rows):
+        flag = Array(rows, sint)
+        @for_range_opt(rows)
+        def _(i):
+            flag[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % 2
+        return flag
+    
+    def get_array(self, rows, party, secret_type):
+        array = Array(rows, secret_type)
+        if party == 'a':
+            if self.share == 'add32':
+                mod = 2**32
+                @for_range_opt(rows)
+                def _(i):
+                    array[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+            else:
+                @for_range_opt(rows)
+                def _(i):
+                    array[i] = sint.bit_compose(x.bit_xor(y)
+                                for x,y in zip(
+                                    sint.get_input_from(0).bit_decompose(),
+                                    sint.get_input_from(1).bit_decompose()))
+        else:  # party == 'b'
+            array.input_from(1)
+        return array
+
+    def get_matrix(self, rows, column_spec, secret_type):
+        alice_cols, bob_cols = parse_column_spec(column_spec)
+        matrix = Matrix(rows, len(column_spec), secret_type)
+        for i in range(alice_cols):
+            tmp_array = secret_type.Array(rows)
+            if self.share == 'add32':
+                mod = 2**32
+                @for_range_opt(rows)
+                def _(j):
+                    tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+            else:
+                @for_range_opt(rows)
+                def _(j):
+                    tmp_array[j] = sint.bit_compose(x.bit_xor(y)
+                                for x,y in zip(
+                                    sint.get_input_from(0).bit_decompose(),
+                                    sint.get_input_from(1).bit_decompose()))
+            matrix.set_column(i, tmp_array)
+        for i in range(bob_cols):
+            matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))    
+        return matrix
+
+class CrossPsiInput:
+    def get_flag(self, rows):
+        return None
+    
+    def get_array(self, rows, party, secret_type):
+        array = Array(rows, secret_type)
+        mod = 2**64
+        @for_range_opt(rows)
+        def _(i):
+            array[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+        return array
+
+    def get_matrix(self, rows, column_spec, secret_type):
+        matrix = Matrix(rows, len(column_spec), secret_type)
+        mod = 2**64
+        for i in range(len(column_spec)):
+            tmp_array = secret_type.Array(rows)
+            @for_range_opt(rows)
+            def _(j):
+                tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+            matrix.set_column(i, tmp_array) 
+        return matrix
+
+class CrossPsiXorInput:
+    def get_flag(self, rows):
+        return None
+    
+    def get_array(self, rows, party, secret_type):
+        array = Array(rows, secret_type)
+        @for_range_opt(rows)
+        def _(i):
+            array[i] = sint.bit_compose(x.bit_xor(y)
+                            for x,y in zip(
+                                sint.get_input_from(0).bit_decompose(),
+                                sint.get_input_from(1).bit_decompose()))
+        return array
+
+    def get_matrix(self, rows, column_spec, secret_type):
+        matrix = Matrix(rows, len(column_spec), secret_type)
+        for i in range(len(column_spec)):
+            tmp_array = secret_type.Array(rows)
+            @for_range_opt(rows)
+            def _(j):
+                tmp_array[j] = sint.bit_compose(x.bit_xor(y)
+                            for x,y in zip(
+                                sint.get_input_from(0).bit_decompose(),
+                                sint.get_input_from(1).bit_decompose()))
+            matrix.set_column(i, tmp_array) 
+        return matrix
+
+
+fact = {
+    'psi':      PsiInput,
+    'pid':  PrivateIdInput,
+    'cpsi':  lambda: CircuitPsiInput(compiler.options.share_type),
+    'ps3i':    CrossPsiInput,
+    'ps3i-xor':CrossPsiXorInput,
+}
+
+provider = fact[compiler.options.protocol]()
+
+
+def xtabs_sum1(group_by, values, stype_val, cat_len):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
-    @threaded(n_threads, rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat in categories:
             thread_sums[i_thread][cat] += (group_by[i] == cat) * values[i]
@@ -101,12 +259,12 @@ def xtabs_sum1(rows, group_by, values, stype_val, cat_len):
         print_ln("Sum %s: %s", cat, sums[cat].reveal())
 
 
-def xtabs_sum2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
+def xtabs_sum2(group_by, values, stype_val, cat_len_1, cat_len_2):
     thread_sums = stype_val.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat_1 in categories_1:
             match_1 = group_by[i][0] == cat_1
@@ -121,12 +279,12 @@ def xtabs_sum2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
             print_ln("Sum (%s, %s): %s", cat_1, cat_2, sums[cat_1][cat_2].reveal())
 
 
-def xtabs_avg1(max_rows, group_by, values, stype_val, cat_len):
+def xtabs_avg1(group_by, values, stype_val, cat_len):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     thread_counts = sint.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat in categories:
             full_match = group_by[i] == cat
@@ -142,13 +300,13 @@ def xtabs_avg1(max_rows, group_by, values, stype_val, cat_len):
         print_ln("Avg %s: %s", cat, (sums[cat] / counts[cat]).reveal())
 
 
-def xtabs_avg2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
+def xtabs_avg2(group_by, values, stype_val, cat_len_1, cat_len_2):
     thread_sums = stype_val.Tensor([n_threads, cat_len_1, cat_len_2])
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads,  group_by.shape[0])
     def _(i, i_thread):
         for cat_1 in categories_1:
             match_1 = group_by[i][0] == cat_1
@@ -167,13 +325,13 @@ def xtabs_avg2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
             print_ln("Avg (%s, %s): %s", cat_1, cat_2, (sums[cat_1][cat_2] / counts[cat_1][cat_2]).reveal())
 
 
-def xtabs_std1(max_rows, group_by, values, stype_val, cat_len, ddof=0):
+def xtabs_std1(group_by, values, stype_val, cat_len, ddof=0):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     thread_counts = sint.Tensor([n_threads, cat_len])
     thread_variances = sint.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat in categories:
             full_match = group_by[i] == cat
@@ -189,7 +347,7 @@ def xtabs_std1(max_rows, group_by, values, stype_val, cat_len, ddof=0):
             counts[cat] += thread_counts[n][cat]
         averages[cat] = sums[cat] / counts[cat]
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat in categories:
             thread_variances[i_thread][cat] += (group_by[i] == cat) * ((values[i] - averages[cat]) ** 2)
@@ -201,14 +359,14 @@ def xtabs_std1(max_rows, group_by, values, stype_val, cat_len, ddof=0):
         print_ln("Std %s: %s", cat, sqrt(variances[cat] / (counts[cat] - ddof)).reveal())
 
 
-def xtabs_std2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
+def xtabs_std2(group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
     thread_sums = stype_val.Tensor([n_threads, cat_len_1, cat_len_2])
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     thread_variances = sfix.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)  
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat_1 in categories_1:
             match_1 = group_by[i][0] == cat_1
@@ -228,7 +386,7 @@ def xtabs_std2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2, ddof
                 counts[cat_1][cat_2] += thread_counts[n][cat_1][cat_2]
             averages[cat_1][cat_2] = sums[cat_1][cat_2] / counts[cat_1][cat_2]
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat_1 in categories_1:
             match_1 = group_by[i][0] == cat_1
@@ -243,12 +401,12 @@ def xtabs_std2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2, ddof
             print_ln("Std (%s, %s): %s", cat_1, cat_2, sqrt(variances[cat_1][cat_2] / (counts[cat_1][cat_2] - ddof)).reveal())
 
 
-def xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2):
+def xtabs_freq(group_by, cat_len_1, cat_len_2):
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat_1 in categories_1:
             match_1 = group_by[i][0] == cat_1
@@ -263,13 +421,13 @@ def xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2):
             print_ln("Freq (%s, %s): %s", cat_1, cat_2, counts[cat_1][cat_2].reveal())
 
 
-def xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2):
+def xtabs_mode(group_by, cat_len_1, cat_len_2):
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     modes = Array(cat_len_1, sint)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, max_rows)
+    @threaded(n_threads, group_by.shape[0])
     def _(i, i_thread):
         for cat_1 in categories_1:
             match_1 = group_by[i][0] == cat_1
@@ -296,13 +454,13 @@ def xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2):
         print_ln("Mode %s: %s", cat_1, modes[cat_1].reveal())
 
 
-def xtabs_1(aggregation, max_rows, group_by, values, stype_val, cat_len):
+def xtabs_1(aggregation, group_by, values, stype_val, cat_len):
     if aggregation == 'sum':
-        xtabs_sum1(max_rows, group_by, values, stype_val, cat_len)
+        xtabs_sum1(group_by, values, stype_val, cat_len)
     elif aggregation == 'avg':
-        xtabs_avg1(max_rows, group_by, values, stype_val, cat_len)
+        xtabs_avg1(group_by, values, stype_val, cat_len)
     elif aggregation == 'std':
-        xtabs_std1(max_rows, group_by, values, stype_val, cat_len)
+        xtabs_std1(group_by, values, stype_val, cat_len)
     elif aggregation == 'freq':
         raise ValueError("Frequency aggregation not supported for single column")
     elif aggregation == 'mode':
@@ -311,17 +469,17 @@ def xtabs_1(aggregation, max_rows, group_by, values, stype_val, cat_len):
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
 
-def xtabs_2(aggregation, max_rows, group_by, values, stype_val, cat_len_1, cat_len_2):
+def xtabs_2(aggregation, group_by, values, stype_val, cat_len_1, cat_len_2):
     if aggregation == 'sum':
-        xtabs_sum2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2)
+        xtabs_sum2(group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'avg':
-        xtabs_avg2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2)
+        xtabs_avg2(group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'std':
-        xtabs_std2(max_rows, group_by, values, stype_val, cat_len_1, cat_len_2)
+        xtabs_std2(group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'freq':
-        xtabs_freq(max_rows, group_by, cat_len_1, cat_len_2)
+        xtabs_freq(group_by, cat_len_1, cat_len_2)
     elif aggregation == 'mode':
-        xtabs_mode(max_rows, group_by, cat_len_1, cat_len_2)
+        xtabs_mode(group_by, cat_len_1, cat_len_2)
     else:
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
@@ -342,7 +500,7 @@ def print_compiler_options(compiler_message):
 
 @compiler.register_function(function_name)
 def main():
-    max_rows = compiler.options.rows
+    num_rows = compiler.options.rows
     n_categories_1 = compiler.options.n_cat_1
     n_categories_2 = compiler.options.n_cat_2
     aggregation = compiler.options.aggregation
@@ -357,14 +515,14 @@ def main():
     print_compiler_options(f"Compiling for arithmetic circuits with {stype_val} secret type")
 
     if num_group_by == 1:
-        group_by = get_array(max_rows, group_by_spec, sint)
-        values = get_array(max_rows, value_source, stype_val)
-        xtabs_1(aggregation, max_rows, group_by, values, stype_val, n_categories_1)
+        group_by = get_array(num_rows, group_by_spec, sint)
+        values = get_array(num_rows, value_source, stype_val)
+        xtabs_1(aggregation, group_by, values, stype_val, n_categories_1)
 
     elif num_group_by == 2:
-        group_by = get_matrix(max_rows, group_by_spec, sint)
-        values = get_array(max_rows, value_source, stype_val) if value_source else None
-        xtabs_2(aggregation, max_rows, group_by, values, stype_val, n_categories_1, n_categories_2)
+        group_by = get_matrix(num_rows, group_by_spec, sint)
+        values = get_array(num_rows, value_source, stype_val) if value_source else None
+        xtabs_2(aggregation, group_by, values, stype_val, n_categories_1, n_categories_2)
     else:
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
 
