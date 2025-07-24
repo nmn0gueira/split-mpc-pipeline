@@ -89,10 +89,10 @@ def post_process_cpsi(input_path, output_path, is_server):
 
         input_df = pd.read_csv(input_path, header=None)
         server_columns = pd.DataFrame(0, index=output_df.index, columns=input_df.columns[1:])
+        server_df_start = len(output_df.columns)
 
         output_df = pd.concat([output_df, server_columns], axis=1, ignore_index=True)
-        server_df_start = len(output_df.columns) - 1
-
+        
         for i, mapped_row in enumerate(mapping):
             output_df.iloc[int(mapped_row), server_df_start:] = input_df.iloc[i, 1:]
 
