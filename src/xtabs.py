@@ -21,8 +21,8 @@ compiler.parser.add_option("--values", dest="values", type=str, help="Value colu
 
 compiler.parse_args()
 
-if not compiler.options.rows:
-    compiler.parser.error("--rows")
+if not compiler.options.rows or not compiler.options.protocol:
+    compiler.parser.error("--rows and --protocol required")
 
 n_threads = compiler.options.n_threads
 function_name = f"xtabs-{compiler.options.aggregation}-{len(compiler.options.group_by)}"    # e.g. xtabs-sum-2
