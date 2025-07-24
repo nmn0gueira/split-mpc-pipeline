@@ -232,25 +232,22 @@ class CrossPsiXorInput:
         return matrix
 
 
-fact = {
-    'psi':      PsiInput,
-    'pid':  PrivateIdInput,
-    'cpsi':  lambda: CircuitPsiInput(compiler.options.share_type),
-    'ps3i':    CrossPsiInput,
-    'ps3i-xor':CrossPsiXorInput,
-}
-
-provider = fact[compiler.options.protocol]()
-
-
-def xtabs_sum1(group_by, values, stype_val, cat_len):
+def xtabs_sum1(flag, group_by, values, stype_val, cat_len):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat in categories:
-            thread_sums[i_thread][cat] += (group_by[i] == cat) * values[i]
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            value = flag[i] * values[i]
+            for cat in categories:
+                thread_sums[i_thread][cat] += (group_by[i] == cat) * value
+    
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat in categories:
+                thread_sums[i_thread][cat] += (group_by[i] == cat) * values[i]
     
     sums = Array(cat_len, stype_val)
     for cat in categories:
@@ -259,17 +256,28 @@ def xtabs_sum1(group_by, values, stype_val, cat_len):
         print_ln("Sum %s: %s", cat, sums[cat].reveal())
 
 
-def xtabs_sum2(group_by, values, stype_val, cat_len_1, cat_len_2):
+def xtabs_sum2(flag, group_by, values, stype_val, cat_len_1, cat_len_2):
     thread_sums = stype_val.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat_1 in categories_1:
-            match_1 = group_by[i][0] == cat_1
-            for cat_2 in categories_2:
-                thread_sums[i_thread][cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * values[i]
+
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            value = flag[i] * values[i]
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    thread_sums[i_thread][cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * value
+    
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    thread_sums[i_thread][cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * values[i]
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     for cat_1 in categories_1:
@@ -279,17 +287,27 @@ def xtabs_sum2(group_by, values, stype_val, cat_len_1, cat_len_2):
             print_ln("Sum (%s, %s): %s", cat_1, cat_2, sums[cat_1][cat_2].reveal())
 
 
-def xtabs_avg1(group_by, values, stype_val, cat_len):
+def xtabs_avg1(flag, group_by, values, stype_val, cat_len):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     thread_counts = sint.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat in categories:
-            full_match = group_by[i] == cat
-            thread_sums[i_thread][cat] += full_match * values[i]
-            thread_counts[i_thread][cat] += full_match
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            #value = flag[i] * values[i]    Cannott use just this as the counts cannot make use of this to economize computation/comm needed
+            for cat in categories:
+                full_match = (group_by[i] == cat) * flag[i]
+                thread_sums[i_thread][cat] += full_match * values[i]
+                thread_counts[i_thread][cat] += full_match
+    
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat in categories:
+                full_match = group_by[i] == cat
+                thread_sums[i_thread][cat] += full_match * values[i]
+                thread_counts[i_thread][cat] += full_match
 
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
@@ -300,20 +318,31 @@ def xtabs_avg1(group_by, values, stype_val, cat_len):
         print_ln("Avg %s: %s", cat, (sums[cat] / counts[cat]).reveal())
 
 
-def xtabs_avg2(group_by, values, stype_val, cat_len_1, cat_len_2):
+def xtabs_avg2(flag, group_by, values, stype_val, cat_len_1, cat_len_2):
     thread_sums = stype_val.Tensor([n_threads, cat_len_1, cat_len_2])
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads,  group_by.shape[0])
-    def _(i, i_thread):
-        for cat_1 in categories_1:
-            match_1 = group_by[i][0] == cat_1
-            for cat_2 in categories_2:
-                full_match = match_1 & (group_by[i][1] == cat_2)
-                thread_sums[i_thread][cat_1][cat_2] += full_match * values[i]
-                thread_counts[i_thread][cat_1][cat_2] += full_match
+    if flag:
+        @threaded(n_threads,  group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = (group_by[i][0] == cat_1) * flag[i]
+                for cat_2 in categories_2:
+                    full_match = match_1 & (group_by[i][1] == cat_2)
+                    thread_sums[i_thread][cat_1][cat_2] += full_match * values[i]
+                    thread_counts[i_thread][cat_1][cat_2] += full_match
+
+    else:
+        @threaded(n_threads,  group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    full_match = match_1 & (group_by[i][1] == cat_2)
+                    thread_sums[i_thread][cat_1][cat_2] += full_match * values[i]
+                    thread_counts[i_thread][cat_1][cat_2] += full_match
     
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     counts = Matrix(cat_len_1, cat_len_2, sint)
@@ -325,18 +354,28 @@ def xtabs_avg2(group_by, values, stype_val, cat_len_1, cat_len_2):
             print_ln("Avg (%s, %s): %s", cat_1, cat_2, (sums[cat_1][cat_2] / counts[cat_1][cat_2]).reveal())
 
 
-def xtabs_std1(group_by, values, stype_val, cat_len, ddof=0):
+def xtabs_std1(flag, group_by, values, stype_val, cat_len, ddof=0):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     thread_counts = sint.Tensor([n_threads, cat_len])
     thread_variances = sint.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat in categories:
-            full_match = group_by[i] == cat
-            thread_sums[i_thread][cat] += full_match * values[i]
-            thread_counts[i_thread][cat] += full_match
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            #value = flag[i] * values[i]    Cannott use just this as the counts cannot make use of this to economize computation/comm needed
+            for cat in categories:
+                full_match = (group_by[i] == cat) * flag[i]
+                thread_sums[i_thread][cat] += full_match * values[i]
+                thread_counts[i_thread][cat] += full_match
+    
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat in categories:
+                full_match = group_by[i] == cat
+                thread_sums[i_thread][cat] += full_match * values[i]
+                thread_counts[i_thread][cat] += full_match
     
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
@@ -347,10 +386,16 @@ def xtabs_std1(group_by, values, stype_val, cat_len, ddof=0):
             counts[cat] += thread_counts[n][cat]
         averages[cat] = sums[cat] / counts[cat]
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat in categories:
-            thread_variances[i_thread][cat] += (group_by[i] == cat) * ((values[i] - averages[cat]) ** 2)
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat in categories:
+                thread_variances[i_thread][cat] += (group_by[i] == cat) * ((values[i] - averages[cat]) ** 2) * flag[i]
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat in categories:
+                thread_variances[i_thread][cat] += (group_by[i] == cat) * ((values[i] - averages[cat]) ** 2)
 
     variances = Array(cat_len, sfix)
     for cat in categories:
@@ -359,21 +404,32 @@ def xtabs_std1(group_by, values, stype_val, cat_len, ddof=0):
         print_ln("Std %s: %s", cat, sqrt(variances[cat] / (counts[cat] - ddof)).reveal())
 
 
-def xtabs_std2(group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
+def xtabs_std2(flag, group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
     thread_sums = stype_val.Tensor([n_threads, cat_len_1, cat_len_2])
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     thread_variances = sfix.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)  
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat_1 in categories_1:
-            match_1 = group_by[i][0] == cat_1
-            for cat_2 in categories_2:
-                full_match = match_1 & (group_by[i][1] == cat_2)
-                thread_sums[i_thread][cat_1][cat_2] += full_match * values[i]
-                thread_counts[i_thread][cat_1][cat_2] += full_match
+    if flag:
+        @threaded(n_threads,  group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = (group_by[i][0] == cat_1) * flag[i]
+                for cat_2 in categories_2:
+                    full_match = match_1 & (group_by[i][1] == cat_2)
+                    thread_sums[i_thread][cat_1][cat_2] += full_match * values[i]
+                    thread_counts[i_thread][cat_1][cat_2] += full_match
+
+    else:
+        @threaded(n_threads,  group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    full_match = match_1 & (group_by[i][1] == cat_2)
+                    thread_sums[i_thread][cat_1][cat_2] += full_match * values[i]
+                    thread_counts[i_thread][cat_1][cat_2] += full_match
 
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     counts = Matrix(cat_len_1, cat_len_2, sint)
@@ -386,12 +442,21 @@ def xtabs_std2(group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
                 counts[cat_1][cat_2] += thread_counts[n][cat_1][cat_2]
             averages[cat_1][cat_2] = sums[cat_1][cat_2] / counts[cat_1][cat_2]
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat_1 in categories_1:
-            match_1 = group_by[i][0] == cat_1
-            for cat_2 in categories_2:
-                thread_variances[i_thread][cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * ((values[i] - averages[cat_1][cat_2]) ** 2)
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = (group_by[i][0] == cat_1) * flag[i]
+                for cat_2 in categories_2:
+                    thread_variances[i_thread][cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * ((values[i] - averages[cat_1][cat_2]) ** 2)
+    
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    thread_variances[i_thread][cat_1][cat_2] += (match_1 & (group_by[i][1] == cat_2)) * ((values[i] - averages[cat_1][cat_2]) ** 2)
     
     variances = Matrix(cat_len_1, cat_len_2, sfix)
     for cat_1 in categories_1:
@@ -401,17 +466,25 @@ def xtabs_std2(group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
             print_ln("Std (%s, %s): %s", cat_1, cat_2, sqrt(variances[cat_1][cat_2] / (counts[cat_1][cat_2] - ddof)).reveal())
 
 
-def xtabs_freq(group_by, cat_len_1, cat_len_2):
+def xtabs_freq(flag, group_by, cat_len_1, cat_len_2):
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat_1 in categories_1:
-            match_1 = group_by[i][0] == cat_1
-            for cat_2 in categories_2:
-                thread_counts[i_thread][cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = (group_by[i][0] == cat_1) * flag[i]
+                for cat_2 in categories_2:
+                    thread_counts[i_thread][cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    thread_counts[i_thread][cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
 
     counts = Matrix(cat_len_1, cat_len_2, sint)
     for cat_1 in categories_1:
@@ -421,18 +494,26 @@ def xtabs_freq(group_by, cat_len_1, cat_len_2):
             print_ln("Freq (%s, %s): %s", cat_1, cat_2, counts[cat_1][cat_2].reveal())
 
 
-def xtabs_mode(group_by, cat_len_1, cat_len_2):
+def xtabs_mode(flag, group_by, cat_len_1, cat_len_2):
     thread_counts = sint.Tensor([n_threads, cat_len_1, cat_len_2])
     modes = Array(cat_len_1, sint)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
 
-    @threaded(n_threads, group_by.shape[0])
-    def _(i, i_thread):
-        for cat_1 in categories_1:
-            match_1 = group_by[i][0] == cat_1
-            for cat_2 in categories_2:
-                thread_counts[i_thread][cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
+    if flag:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = (group_by[i][0] == cat_1) * flag[i]
+                for cat_2 in categories_2:
+                    thread_counts[i_thread][cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
+    else:
+        @threaded(n_threads, group_by.shape[0])
+        def _(i, i_thread):
+            for cat_1 in categories_1:
+                match_1 = group_by[i][0] == cat_1
+                for cat_2 in categories_2:
+                    thread_counts[i_thread][cat_1][cat_2] += match_1 & (group_by[i][1] == cat_2)
 
     counts = Matrix(cat_len_1, cat_len_2, sint)
     for cat_1 in categories_1:
@@ -454,13 +535,13 @@ def xtabs_mode(group_by, cat_len_1, cat_len_2):
         print_ln("Mode %s: %s", cat_1, modes[cat_1].reveal())
 
 
-def xtabs_1(aggregation, group_by, values, stype_val, cat_len):
+def xtabs_1(aggregation, flag, group_by, values, stype_val, cat_len):
     if aggregation == 'sum':
-        xtabs_sum1(group_by, values, stype_val, cat_len)
+        xtabs_sum1(flag, group_by, values, stype_val, cat_len)
     elif aggregation == 'avg':
-        xtabs_avg1(group_by, values, stype_val, cat_len)
+        xtabs_avg1(flag, group_by, values, stype_val, cat_len)
     elif aggregation == 'std':
-        xtabs_std1(group_by, values, stype_val, cat_len)
+        xtabs_std1(flag, group_by, values, stype_val, cat_len)
     elif aggregation == 'freq':
         raise ValueError("Frequency aggregation not supported for single column")
     elif aggregation == 'mode':
@@ -469,26 +550,27 @@ def xtabs_1(aggregation, group_by, values, stype_val, cat_len):
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
 
-def xtabs_2(aggregation, group_by, values, stype_val, cat_len_1, cat_len_2):
+def xtabs_2(aggregation, flag, group_by, values, stype_val, cat_len_1, cat_len_2):
     if aggregation == 'sum':
-        xtabs_sum2(group_by, values, stype_val, cat_len_1, cat_len_2)
+        xtabs_sum2(flag, group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'avg':
-        xtabs_avg2(group_by, values, stype_val, cat_len_1, cat_len_2)
+        xtabs_avg2(flag, group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'std':
-        xtabs_std2(group_by, values, stype_val, cat_len_1, cat_len_2)
+        xtabs_std2(flag, group_by, values, stype_val, cat_len_1, cat_len_2)
     elif aggregation == 'freq':
-        xtabs_freq(group_by, cat_len_1, cat_len_2)
+        xtabs_freq(flag, group_by, cat_len_1, cat_len_2)
     elif aggregation == 'mode':
-        xtabs_mode(group_by, cat_len_1, cat_len_2)
+        xtabs_mode(flag, group_by, cat_len_1, cat_len_2)
     else:
         raise ValueError(f"Unsupported aggregation type: {aggregation}")
 
 
-def print_compiler_options(compiler_message):
-    print("----------------------------------------------------------------")
-    print(compiler_message)
+def print_compiler_options():
     print("----------------------------------------------------------------")
     print("Compiler options:")
+    print("Protocol:", compiler.options.protocol)
+    print("Share type:", compiler.options.share_type)
+    print("Number of threads:", n_threads)
     print("Rows:", compiler.options.rows)
     print("Number of categories for first column:", compiler.options.n_cat_1)
     print("Number of categories for second column (if applicable):", compiler.options.n_cat_2)
@@ -500,29 +582,33 @@ def print_compiler_options(compiler_message):
 
 @compiler.register_function(function_name)
 def main():
-    num_rows = compiler.options.rows
-    n_categories_1 = compiler.options.n_cat_1
-    n_categories_2 = compiler.options.n_cat_2
-    aggregation = compiler.options.aggregation
-    group_by_spec = compiler.options.group_by
-    value_source = compiler.options.values
-    num_group_by = len(group_by_spec)
+    fact = {
+        'psi':      PsiInput,
+        'pid':  PrivateIdInput,
+        'cpsi':  lambda: CircuitPsiInput(compiler.options.share_type),
+        'ps3i':    CrossPsiInput,
+        'ps3i-xor':CrossPsiXorInput,
+    }
 
-    compiler.prog.use_trunc_pr = True # Comment this line if the protocol cannot use probabilistic truncation
-    #sfix.round_nearest= True
+    provider = fact[compiler.options.protocol]()
+    num_group_by = len(compiler.options.group_by)
+
+    compiler.prog.use_trunc_pr = True
     stype_val = sfix if 'fix' in compiler.prog.args else sint
 
-    print_compiler_options(f"Compiling for arithmetic circuits with {stype_val} secret type")
+    print_compiler_options()
 
     if num_group_by == 1:
-        group_by = get_array(num_rows, group_by_spec, sint)
-        values = get_array(num_rows, value_source, stype_val)
-        xtabs_1(aggregation, group_by, values, stype_val, n_categories_1)
+        flag = provider.get_flag(compiler.options.rows)
+        group_by = provider.get_array(compiler.options.rows, compiler.options.group_by, sint)
+        values = provider.get_array(compiler.options.rows, compiler.options.values, stype_val)
+        xtabs_1(compiler.options.aggregation, flag, group_by, values, stype_val, compiler.options.n_cat_1)
 
     elif num_group_by == 2:
-        group_by = get_matrix(num_rows, group_by_spec, sint)
-        values = get_array(num_rows, value_source, stype_val) if value_source else None
-        xtabs_2(aggregation, group_by, values, stype_val, n_categories_1, n_categories_2)
+        flag = provider.get_flag(compiler.options.rows)
+        group_by = provider.get_matrix(compiler.options.rows, compiler.options.group_by, sint)
+        values = provider.get_array(compiler.options.rows, compiler.options.values, stype_val) if compiler.options.values else None
+        xtabs_2(compiler.options.aggregation, flag, group_by, values, stype_val, compiler.options.n_cat_1, compiler.options.n_cat_2)
     else:
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
 
