@@ -5,15 +5,40 @@ import pandas as pd
 
 usage = "usage: %prog [options]"
 compiler = Compiler(usage=usage)
-compiler.parser.add_option("--rows",     dest="rows",       type=int, help="max rows")
-compiler.parser.add_option("--protocol", dest="protocol",   type=str,
-                          help="one of psi, cpsi, ps3i, ps3i-xor, pid")
-compiler.parser.add_option("--share-type", dest="share_type", type=str,
-                          default="xor", help="for cpsi: xor or add32")
+
+compiler.parser.add_option("--n_threads", dest="n_threads", type=int, default=1, help="Number of threads to use for parallel execution")
+
+compiler.parser.add_option("--protocol", dest="protocol", type=str, help="one of psi, cpsi, ps3i, ps3i-xor, pid")
+compiler.parser.add_option("--share-type", dest="share_type", type=str, default="xor", help="for cpsi: xor or add32")
+
+compiler.parser.add_option("--rows", dest="rows", type=int, help="max rows")
+
 compiler.parse_args()
+
 if not compiler.options.rows or not compiler.options.protocol:
     compiler.parser.error("--rows and --protocol required")
 
+n_threads = compiler.options.n_threads
+
+
+def threaded(n_threads, n_loops):
+    def decorator(func):
+        base = n_loops // n_threads
+        remainder = n_loops % n_threads
+
+        def thread_fn(i_thread):
+            start = i_thread * base + min(i_thread, remainder)
+            end = start + base + (1 if i_thread < remainder else 0)
+            @for_range_opt(start, end)
+            def _(i):
+                func(i, i_thread)
+
+        tapes = [compiler.prog.new_tape(thread_fn, args=[i], single_thread=True)
+                 for i in range(n_threads)]
+        threads = compiler.prog.run_tapes(tapes)
+        compiler.prog.join_tapes(threads)
+
+    return decorator
 
 def get_bin_edges(values):
     N = len(values)
@@ -122,47 +147,48 @@ fact = {
 provider = fact[compiler.options.protocol]()
 
 
-def hist2d(flag, input_x, input_y, edges_x, edges_y):
-    num_rows = input_x.shape[0]
-    assert num_rows == input_y.shape[0], "input_x and input_y must have the same number of rows"
-    
+def hist2d(flag, input_x, input_y, edges_x, edges_y):    
     nx = edges_x.shape[0]-1
     ny = edges_y.shape[0]-1
     bins_x = range(nx)
     bins_y = range(ny)
-    hist2d = Matrix(ny, nx, sint)
+    thread_hist2d = sint.Tensor([n_threads, ny, nx])
     
     if flag:
-        @for_range_opt(num_rows)
-        def _(i):
+        @threaded(n_threads, input_x.shape[0])
+        def _(i, i_thread):
             ix = digitize(input_x[i], edges_x)
             iy = digitize(input_y[i], edges_y)
             for y in bins_y:
                 m = (iy==y) * flag[i]
                 for x in bins_x:
-                    hist2d[y][x] += (ix==x) * m
+                    thread_hist2d[i_thread][y][x] += (ix==x) * m
     else:
-        @for_range_opt(num_rows)
-        def _(i):
+        @threaded(n_threads, input_x.shape[0])
+        def _(i, i_thread):
             ix = digitize(input_x[i], edges_x)
             iy = digitize(input_y[i], edges_y)
             for y in bins_y:
                 m = iy==y
                 for x in bins_x:
-                    hist2d[y][x] += (ix==x) * m
+                    thread_hist2d[i_thread][y][x] += (ix==x) * m
 
+    hist2d = Matrix(ny, nx, sint)
     print_ln("Histogram 2D:")
     for y in bins_y:
         for x in bins_x:
+            for n in range(n_threads):
+                hist2d[y][x] += thread_hist2d[n][y][x]
             print_ln("hist2d[%s][%s]=%s", y, x, hist2d[y][x].reveal())
 
 
 def print_compiler_options():
     print("----------------------------------------------------------------")
     print("Compiler options:")
-    print("Rows:", compiler.options.rows)
     print("Protocol:", compiler.options.protocol)
-    print("Share type (if applicable):", compiler.options.share_type)
+    print("Share type:", compiler.options.share_type)
+    print("Number of threads:", n_threads)
+    print("Rows:", compiler.options.rows)
     print("----------------------------------------------------------------")
 
 
