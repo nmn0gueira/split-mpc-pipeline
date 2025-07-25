@@ -583,21 +583,18 @@ def print_compiler_options():
 
 @compiler.register_function(function_name)
 def main():
-    fact = {
-        'psi':      PsiInput,
-        'pid':  PrivateIdInput,
-        'cpsi':  lambda: CircuitPsiInput(compiler.options.share_type),
-        'ps3i':    CrossPsiInput,
-        'ps3i-xor':CrossPsiXorInput,
-    }
-
-    provider = fact[compiler.options.protocol]()
-    num_group_by = len(compiler.options.group_by)
-
+    print_compiler_options()
     compiler.prog.use_trunc_pr = True
     stype_val = sfix if 'fix' in compiler.prog.args else sint
-
-    print_compiler_options()
+    num_group_by = len(compiler.options.group_by)
+    fact = {
+        'psi': PsiInput,
+        'pid': PrivateIdInput,
+        'cpsi': lambda: CircuitPsiInput(compiler.options.share_type),
+        'ps3i': CrossPsiInput,
+        'ps3i-xor': CrossPsiXorInput,
+    }
+    provider = fact[compiler.options.protocol]() 
 
     if num_group_by == 1:
         flag = provider.get_flag(compiler.options.rows)

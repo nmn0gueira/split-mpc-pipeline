@@ -128,16 +128,6 @@ class CrossPsiXorInput:
         return None, A, B
 
 
-fact = {
-    'psi':      PsiInput,
-    'pid':  PrivateIdInput,
-    'cpsi':  lambda: CircuitPsiInput(compiler.options.share_type),
-    'ps3i':    CrossPsiInput,
-    'ps3i-xor':CrossPsiXorInput,
-}
-provider = fact[compiler.options.protocol]()
-
-
 def hist2d(flag, input_x, input_y, edges_x, edges_y):    
     nx = len(edges_x)-1
     ny = len(edges_y)-1
@@ -186,10 +176,18 @@ def print_compiler_options():
 @compiler.register_function('hist2d')
 def main():
     print_compiler_options()
-    df = pd.read_csv('Player-Data/public/data.csv', header=None)
+    df = pd.read_csv('Player-Data/public/data.csv', header=None)    # Should contain the edges ordered in two columns
+    # Both lists should be of either int or float type depending on the respective input data
     edges_x = df.iloc[:,0].values.tolist()
     edges_y = df.iloc[:,1].values.tolist()
-    
+    fact = {
+        'psi': PsiInput,
+        'pid': PrivateIdInput,
+        'cpsi': lambda: CircuitPsiInput(compiler.options.share_type),
+        'ps3i': CrossPsiInput,
+        'ps3i-xor': CrossPsiXorInput,
+    }
+    provider = fact[compiler.options.protocol]()
     flag, alice, bob = provider.get(compiler.options.rows, sfix if 'fix' in compiler.prog.args else sint)
     hist2d(flag, alice, bob, edges_x, edges_y)
 
