@@ -62,13 +62,13 @@ class PsiInput:
 class PrivateIdInput:
     def get(self, rows, secret_type):
         flag = Array(rows, sint)
-        A = Array(rows, secret_type)
-        B = Array(rows, secret_type)
-        @for_range_opt(rows)
-        def _(i):
-            flag[i] = sint.get_input_from(0) * sint.get_input_from(1)
-        A.input_from(0); B.input_from(1)
-        return flag, A, B
+        alice = Array(rows, secret_type)
+        bob = Array(rows, secret_type)
+        flag.input_from(0)
+        flag *= sint.get_input_from(1, size=rows)
+        alice.input_from(0)
+        bob.input_from(1)
+        return flag, alice, bob
 
 class CircuitPsiInput:
     def __init__(self, share):

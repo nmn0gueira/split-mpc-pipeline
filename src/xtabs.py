@@ -109,9 +109,8 @@ class PsiInput:
 class PrivateIdInput:
     def get_flag(self, rows):
         flag = Array(rows, sint)
-        @for_range_opt(rows)
-        def _(i):
-            flag[i] = sint.get_input_from(0) * sint.get_input_from(1)
+        flag.input_from(0)
+        flag *= sint.get_input_from(1, size=rows)   
         return flag
     
     def get_array(self, rows, party, secret_type):
