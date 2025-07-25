@@ -51,8 +51,8 @@ def threaded(n_threads, n_loops):
     return decorator
 
 
-def mux(cond, trueVal, falseVal):
-    return cond.if_else(trueVal, falseVal)
+def mux(cond, true_val, false_val):
+    return cond.if_else(true_val, false_val)
 
 
 def parse_column_spec(column_spec):
@@ -141,8 +141,8 @@ class CircuitPsiInput:
         return flag
     
     def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
         if party == 'a':
+            array = Array(rows, sint)
             if self.share == 'add32':
                 mod = 2**32
                 @for_range_opt(rows)
@@ -156,14 +156,15 @@ class CircuitPsiInput:
                                     sint.get_input_from(0).bit_decompose(),
                                     sint.get_input_from(1).bit_decompose()))
         else:  # party == 'b'
+            array = Array(rows, secret_type)
             array.input_from(1)
         return array
 
     def get_matrix(self, rows, column_spec, secret_type):
         alice_cols, bob_cols = parse_column_spec(column_spec)
-        matrix = Matrix(rows, len(column_spec), secret_type)
+        matrix = Matrix(rows, len(column_spec), sint)
         for i in range(alice_cols):
-            tmp_array = secret_type.Array(rows)
+            tmp_array = sint.Array(rows)
             if self.share == 'add32':
                 mod = 2**32
                 @for_range_opt(rows)
@@ -178,7 +179,7 @@ class CircuitPsiInput:
                                     sint.get_input_from(1).bit_decompose()))
             matrix.set_column(i, tmp_array)
         for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))    
+            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
         return matrix
 
 class CrossPsiInput:
@@ -186,7 +187,7 @@ class CrossPsiInput:
         return None
     
     def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
+        array = Array(rows, sint)
         mod = 2**64
         @for_range_opt(rows)
         def _(i):
@@ -194,10 +195,10 @@ class CrossPsiInput:
         return array
 
     def get_matrix(self, rows, column_spec, secret_type):
-        matrix = Matrix(rows, len(column_spec), secret_type)
+        matrix = Matrix(rows, len(column_spec), sint)
         mod = 2**64
         for i in range(len(column_spec)):
-            tmp_array = secret_type.Array(rows)
+            tmp_array = sint.Array(rows)
             @for_range_opt(rows)
             def _(j):
                 tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
@@ -209,7 +210,7 @@ class CrossPsiXorInput:
         return None
     
     def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
+        array = Array(rows, sint)
         @for_range_opt(rows)
         def _(i):
             array[i] = sint.bit_compose(x.bit_xor(y)
@@ -219,9 +220,9 @@ class CrossPsiXorInput:
         return array
 
     def get_matrix(self, rows, column_spec, secret_type):
-        matrix = Matrix(rows, len(column_spec), secret_type)
+        matrix = Matrix(rows, len(column_spec), sint)
         for i in range(len(column_spec)):
-            tmp_array = secret_type.Array(rows)
+            tmp_array = sint.Array(rows)
             @for_range_opt(rows)
             def _(j):
                 tmp_array[j] = sint.bit_compose(x.bit_xor(y)
@@ -569,7 +570,7 @@ def print_compiler_options():
     print("----------------------------------------------------------------")
     print("Compiler options:")
     print("Protocol:", compiler.options.protocol)
-    print("Share type:", compiler.options.share_type)
+    print("Share type (if applicable):", compiler.options.share_type)
     print("Number of threads:", n_threads)
     print("Rows:", compiler.options.rows)
     print("Number of categories for first column:", compiler.options.n_cat_1)
