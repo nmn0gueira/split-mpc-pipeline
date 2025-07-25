@@ -88,15 +88,14 @@ def post_process_cpsi(input_path, output_path, is_server):
             mapping = f.read().strip().split('\n')
 
         input_df = pd.read_csv(input_path, header=None)
-        server_columns = pd.DataFrame(0, index=output_df.index, columns=input_df.columns[1:])
+        server_columns = pd.DataFrame(0, index=output_df.index, columns=input_df.columns[1:], dtype=object)
         server_df_start = len(output_df.columns)
 
         output_df = pd.concat([output_df, server_columns], axis=1, ignore_index=True)
         
         for i, mapped_row in enumerate(mapping):
             output_df.iloc[int(mapped_row), server_df_start:] = input_df.iloc[i, 1:]
-
-        
+    
 
     output_df.to_csv(output_path, index=False, header=False)
 
@@ -112,7 +111,7 @@ def post_process_pid(input_path, output_path):
     input_df = pd.read_csv(input_path, header=None)
     output_df = pd.read_csv(output_path, header=None)
 
-    true_output_df = pd.DataFrame(0, index=output_df.index, columns=input_df.columns)
+    true_output_df = pd.DataFrame(0, index=output_df.index, columns=input_df.columns, dtype=object)
     mapping = dict(zip(output_df[0], output_df.index))
 
     for i in range(len(input_df)):
