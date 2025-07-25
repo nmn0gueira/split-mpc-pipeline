@@ -6,7 +6,7 @@ import sys
 
 def transform_csv(input_file, output_file, columns=None, transpose=False, do_split=False, split_ratio=0.8):
     try:
-        df = pd.read_csv(input_file, header=None)
+        df = pd.read_csv(input_file, header=None, dtype=object)
 
         if columns is not None:
             df = df.iloc[:, columns]
