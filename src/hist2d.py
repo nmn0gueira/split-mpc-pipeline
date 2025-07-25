@@ -1,5 +1,5 @@
-from Compiler.types    import Array, Matrix, sint, cint
-from Compiler.library  import print_ln, for_range_opt
+from Compiler.types import Array, Matrix, sint, sfix
+from Compiler.library import print_ln, for_range_opt
 from Compiler.compilerLib import Compiler
 import pandas as pd
 
@@ -40,40 +40,31 @@ def threaded(n_threads, n_loops):
 
     return decorator
 
-def get_bin_edges(values):
-    N = len(values)
-    edges = Array(N, cint)
-    prev = float('-inf')
-    for i,val in enumerate(values):
-        if val <= prev:
-            raise ValueError("Edges must ascend")
-        edges[i] = cint(int(val))
-        prev = val
-    return edges
 
-def mux(c, t, f): return c.if_else(t, f)
+def mux(cond, true_val, false_val):
+    return cond.if_else(true_val, false_val)
 
 def digitize(v, edges):
     idx = sint(0)
-    N = edges.shape[0]
-    for i in range(N-1, 0, -1):
+    for i in range(len(edges)-1, 0, -1):
         idx = mux(v <= edges[i], i-1, idx)
     return idx
 
 
 class PsiInput:
-    def get(self, R):
-        A = Array(R, sint)
-        B = Array(R, sint)
-        A.input_from(0); B.input_from(1)
-        return None, A, B
+    def get(self, rows, secret_type):
+        alice = Array(rows, secret_type)
+        bob = Array(rows, secret_type)
+        alice.input_from(0)
+        bob.input_from(1)
+        return None, alice, bob
 
 class PrivateIdInput:
-    def get(self, R):
-        flag = Array(R, sint)
-        A = Array(R, sint)
-        B = Array(R, sint)
-        @for_range_opt(R)
+    def get(self, rows, secret_type):
+        flag = Array(rows, sint)
+        A = Array(rows, secret_type)
+        B = Array(rows, secret_type)
+        @for_range_opt(rows)
         def _(i):
             flag[i] = sint.get_input_from(0) * sint.get_input_from(1)
         A.input_from(0); B.input_from(1)
@@ -82,20 +73,20 @@ class PrivateIdInput:
 class CircuitPsiInput:
     def __init__(self, share):
         self.share = share
-    def get(self, R):
-        flag = Array(R, sint)
-        A = Array(R, sint)
-        B = Array(R, sint)
-        @for_range_opt(R)
+    def get(self, rows, secret_type):
+        flag = Array(rows, sint)
+        A = Array(rows, sint)
+        B = Array(rows, secret_type)
+        @for_range_opt(rows)
         def _(i):
             flag[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % 2
         if self.share == 'add32':
             mod = 2**32
-            @for_range_opt(R)
+            @for_range_opt(rows)
             def _(i):
                 A[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
         else:  # xor
-            @for_range_opt(R)
+            @for_range_opt(rows)
             def _(i):
                 A[i] = sint.bit_compose(x.bit_xor(y)
                             for x,y in zip(
@@ -105,30 +96,30 @@ class CircuitPsiInput:
         return flag, A, B
 
 class CrossPsiInput:
-    def get(self, R):
-        A = Array(R, sint)
-        B = Array(R, sint)
+    def get(self, rows, secret_type):
+        A = Array(rows, sint)
+        B = Array(rows, sint)
         mod = 2**64
-        @for_range_opt(R)
+        @for_range_opt(rows)
         def _(i):
             A[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
 
-        @for_range_opt(R)
+        @for_range_opt(rows)
         def _(i):
             B[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
         return None, A, B
 
 class CrossPsiXorInput:
-    def get(self, R):
-        A = Array(R, sint)
-        B = Array(R, sint)
-        @for_range_opt(R)
+    def get(self, rows, secret_type):
+        A = Array(rows, sint)
+        B = Array(rows, sint)
+        @for_range_opt(rows)
         def _(i):
             A[i] = sint.bit_compose(x.bit_xor(y)
                             for x,y in zip(
                                 sint.get_input_from(0).bit_decompose(),
                                 sint.get_input_from(1).bit_decompose()))
-        @for_range_opt(R)
+        @for_range_opt(rows)
         def _(i):
             B[i] = sint.bit_compose(x.bit_xor(y)
                             for x,y in zip(
@@ -148,8 +139,8 @@ provider = fact[compiler.options.protocol]()
 
 
 def hist2d(flag, input_x, input_y, edges_x, edges_y):    
-    nx = edges_x.shape[0]-1
-    ny = edges_y.shape[0]-1
+    nx = len(edges_x)-1
+    ny = len(edges_y)-1
     bins_x = range(nx)
     bins_y = range(ny)
     thread_hist2d = sint.Tensor([n_threads, ny, nx])
@@ -186,7 +177,7 @@ def print_compiler_options():
     print("----------------------------------------------------------------")
     print("Compiler options:")
     print("Protocol:", compiler.options.protocol)
-    print("Share type:", compiler.options.share_type)
+    print("Share type (if applicable):", compiler.options.share_type)
     print("Number of threads:", n_threads)
     print("Rows:", compiler.options.rows)
     print("----------------------------------------------------------------")
@@ -196,10 +187,10 @@ def print_compiler_options():
 def main():
     print_compiler_options()
     df = pd.read_csv('Player-Data/public/data.csv', header=None)
-    edges_x = get_bin_edges(df.iloc[:,0].values)
-    edges_y = get_bin_edges(df.iloc[:,1].values)
+    edges_x = df.iloc[:,0].values.tolist()
+    edges_y = df.iloc[:,1].values.tolist()
     
-    flag, alice, bob = provider.get(compiler.options.rows)
+    flag, alice, bob = provider.get(compiler.options.rows, sfix if 'fix' in compiler.prog.args else sint)
     hist2d(flag, alice, bob, edges_x, edges_y)
 
 
