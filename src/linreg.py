@@ -103,12 +103,12 @@ class CircuitPsiInput:
         if label_owner == 'a':
             if self.share == 'add32':
                 mod = 2**32
-                @for_range_opt(train_rows)
-                def _(i):
-                    y_train[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
-                @for_range_opt(test_rows)
-                def _(i):
-                    y_test[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+                y_train.input_from(0)
+                y_train += sint.get_input_from(1, size=train_rows)
+                y_train[:] %= mod
+                y_test.input_from(0)
+                y_test += sint.get_input_from(1, size=test_rows)
+                y_test[:] %= mod
             else:
                 @for_range_opt(train_rows)
                 def _(i):
@@ -135,10 +135,9 @@ class CircuitPsiInput:
         for i in range(alice_columns):
             tmp_array = sint.Array(train_rows + test_rows)
             if self.share == 'add32':
-                mod = 2**32
-                @for_range_opt(train_rows + test_rows)
-                def _(j):
-                    tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+                tmp_array.input_from(0)
+                tmp_array += sint.get_input_from(1, size=train_rows + test_rows)
+                tmp_array[:] %= 2**32
             else:
                 @for_range_opt(train_rows + test_rows)
                 def _(j):

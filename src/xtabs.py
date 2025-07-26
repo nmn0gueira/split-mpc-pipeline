@@ -143,10 +143,9 @@ class CircuitPsiInput:
         if party == 'a':
             array = Array(rows, sint)
             if self.share == 'add32':
-                mod = 2**32
-                @for_range_opt(rows)
-                def _(i):
-                    array[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+                array.input_from(0)
+                array += sint.get_input_from(1, size=rows)
+                array[:] %= 2**32
             else:
                 @for_range_opt(rows)
                 def _(i):
@@ -165,10 +164,9 @@ class CircuitPsiInput:
         for i in range(alice_cols):
             tmp_array = sint.Array(rows)
             if self.share == 'add32':
-                mod = 2**32
-                @for_range_opt(rows)
-                def _(j):
-                    tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+                tmp_array.input_from(0)
+                tmp_array += sint.get_input_from(1, size=rows)
+                tmp_array[:] %= 2**32
             else:
                 @for_range_opt(rows)
                 def _(j):

@@ -81,10 +81,9 @@ class CircuitPsiInput:
         flag += sint.get_input_from(1, size=rows)
         flag[:] %= 2
         if self.share == 'add32':
-            mod = 2**32
-            @for_range_opt(rows)
-            def _(i):
-                alice[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+            alice.input_from(0)
+            alice += sint.get_input_from(1, size=rows)
+            alice[:] %= 2**32
         else:  # xor
             @for_range_opt(rows)
             def _(i):
