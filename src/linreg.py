@@ -97,6 +97,31 @@ class CircuitPsiInput:
         flag_test[:] %= 2
         return flag_train, flag_test
 
+    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
+        num_features = alice_columns + bob_columns
+        num_rows = train_rows + test_rows
+        X_train = Matrix(train_rows, num_features, sfix)
+        X_test = Matrix(test_rows, num_features, sfix)
+        for i in range(alice_columns):
+            tmp_array = sint.Array(num_rows)
+            if self.share == 'add32':
+                tmp_array.input_from(0)
+                tmp_array += sint.get_input_from(1, size=num_rows)
+                tmp_array[:] %= 2**32
+            else:
+                @for_range_opt(num_rows)
+                def _(j):
+                    tmp_array[j] = sint.bit_compose(x.bit_xor(y)
+                                for x,y in zip(
+                                    sint.get_input_from(0).bit_decompose(),
+                                    sint.get_input_from(1).bit_decompose()))
+            X_train.set_column(i, tmp_array[:train_rows])
+            X_test.set_column(i, tmp_array[train_rows:])
+        for i in range(bob_columns):
+            X_train.set_column(alice_columns + i, sint.get_input_from(1, size=train_rows))
+            X_test.set_column(alice_columns + i, sint.get_input_from(1, size=test_rows))
+        return X_train, X_test
+
     def load_label_vector(self, label_owner, train_rows, test_rows):
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
@@ -128,44 +153,21 @@ class CircuitPsiInput:
             y_test.input_from(1)
         return y_train, y_test 
 
-    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
-        num_features = alice_columns + bob_columns
-        X_train = Matrix(train_rows, num_features, sfix)
-        X_test = Matrix(test_rows, num_features, sfix)
-        for i in range(alice_columns):
-            tmp_array = sint.Array(train_rows + test_rows)
-            if self.share == 'add32':
-                tmp_array.input_from(0)
-                tmp_array += sint.get_input_from(1, size=train_rows + test_rows)
-                tmp_array[:] %= 2**32
-            else:
-                @for_range_opt(train_rows + test_rows)
-                def _(j):
-                    tmp_array[j] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
-            X_train.set_column(i, tmp_array[:train_rows])
-            X_test.set_column(i, tmp_array[train_rows:])
-        for i in range(bob_columns):
-            X_train.set_column(alice_columns + i, sint.get_input_from(1, size=train_rows))
-            X_test.set_column(alice_columns + i, sint.get_input_from(1, size=test_rows))
-        return X_train, X_test
-
 class CrossPsiInput:
     def get_flag(self, train_rows, test_rows):
         return None, None
     
     def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
         num_features = alice_columns + bob_columns
+        num_rows = train_rows + test_rows
         X_train = Matrix(train_rows, num_features, sfix)
         X_test = Matrix(test_rows, num_features, sfix)
         mod = 2**64
         for i in range(num_features):
-            tmp_array = sint.Array(train_rows + test_rows)
-            @for_range_opt(train_rows + test_rows)
-            def _(j):
-                tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+            tmp_array = sint.Array(num_rows)
+            tmp_array.input_from(0)
+            tmp_array += sint.get_input_from(1, size=num_rows)
+            tmp_array[:] %= mod
             X_train.set_column(i, tmp_array[:train_rows])
             X_test.set_column(i, tmp_array[train_rows:])
         return X_train, X_test
@@ -174,15 +176,13 @@ class CrossPsiInput:
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
         mod = 2**64
-        @for_range_opt(train_rows)
-        def _(i):
-            y_train[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
-        @for_range_opt(test_rows)
-        def _(i):
-            y_test[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+        y_train.input_from(0)
+        y_train += sint.get_input_from(1, size=train_rows)
+        y_train[:] %= mod
+        y_test.input_from(0)
+        y_test += sint.get_input_from(1, size=test_rows)
+        y_test[:] %= mod
         return y_train, y_test
-
-    
 
 class CrossPsiXorInput:
     def get_flag(self, train_rows, test_rows):
@@ -190,11 +190,12 @@ class CrossPsiXorInput:
     
     def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
         num_features = alice_columns + bob_columns
+        num_rows = train_rows + test_rows
         X_train = Matrix(train_rows, num_features, sfix)
         X_test = Matrix(test_rows, num_features, sfix)
         for i in range(num_features):
-            tmp_array = sint.Array(train_rows + test_rows)
-            @for_range_opt(train_rows + test_rows)
+            tmp_array = sint.Array(num_rows)
+            @for_range_opt(num_rows)
             def _(j):
                 tmp_array[j] = sint.bit_compose(x.bit_xor(y)
                                 for x,y in zip(

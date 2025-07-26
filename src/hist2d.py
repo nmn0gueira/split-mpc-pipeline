@@ -96,35 +96,34 @@ class CircuitPsiInput:
 
 class CrossPsiInput:
     def get(self, rows, secret_type):
-        A = Array(rows, sint)
-        B = Array(rows, sint)
+        alice = Array(rows, sint)
+        bob = Array(rows, sint)
         mod = 2**64
-        @for_range_opt(rows)
-        def _(i):
-            A[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
-
-        @for_range_opt(rows)
-        def _(i):
-            B[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
-        return None, A, B
+        alice.input_from(0)
+        alice += sint.get_input_from(1, size=rows)
+        alice[:] %= mod
+        bob.input_from(0)
+        bob += sint.get_input_from(1, size=rows)
+        bob[:] %= mod
+        return None, alice, bob
 
 class CrossPsiXorInput:
     def get(self, rows, secret_type):
-        A = Array(rows, sint)
-        B = Array(rows, sint)
+        alice = Array(rows, sint)
+        bob = Array(rows, sint)
         @for_range_opt(rows)
         def _(i):
-            A[i] = sint.bit_compose(x.bit_xor(y)
+            alice[i] = sint.bit_compose(x.bit_xor(y)
                             for x,y in zip(
                                 sint.get_input_from(0).bit_decompose(),
                                 sint.get_input_from(1).bit_decompose()))
         @for_range_opt(rows)
         def _(i):
-            B[i] = sint.bit_compose(x.bit_xor(y)
+            bob[i] = sint.bit_compose(x.bit_xor(y)
                             for x,y in zip(
                                 sint.get_input_from(0).bit_decompose(),
                                 sint.get_input_from(1).bit_decompose()))
-        return None, A, B
+        return None, alice, bob
 
 
 def hist2d(flag, input_x, input_y, edges_x, edges_y):    

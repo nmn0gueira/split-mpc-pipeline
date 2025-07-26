@@ -185,10 +185,9 @@ class CrossPsiInput:
     
     def get_array(self, rows, party, secret_type):
         array = Array(rows, sint)
-        mod = 2**64
-        @for_range_opt(rows)
-        def _(i):
-            array[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+        array.input_from(0)
+        array += sint.get_input_from(1, size=rows)
+        array[:] %= 2**64
         return array
 
     def get_matrix(self, rows, column_spec, secret_type):
@@ -196,9 +195,9 @@ class CrossPsiInput:
         mod = 2**64
         for i in range(len(column_spec)):
             tmp_array = sint.Array(rows)
-            @for_range_opt(rows)
-            def _(j):
-                tmp_array[j] = (sint.get_input_from(0) + sint.get_input_from(1)) % mod
+            tmp_array.input_from(0)
+            tmp_array += sint.get_input_from(1, size=rows)
+            tmp_array[:] %= mod
             matrix.set_column(i, tmp_array) 
         return matrix
 
