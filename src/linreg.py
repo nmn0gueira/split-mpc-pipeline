@@ -44,8 +44,7 @@ class PsiInput:
 
         return X_train, X_test
 
-    def load_label_vector(self, label_owner, train_rows, test_rows):
-        party = 0 if label_owner == 'a' else 1
+    def load_label_vector(self, party, train_rows, test_rows):
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
         y_train.input_from(party)
@@ -74,8 +73,7 @@ class PrivateIdInput:
             X_test.set_column(alice_columns + i, sfix.get_input_from(1, size=test_rows)) 
         return X_train, X_test
 
-    def load_label_vector(self, label_owner, train_rows, test_rows):
-        party = 0 if label_owner == 'a' else 1
+    def load_label_vector(self, party, train_rows, test_rows):
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
         y_train.input_from(party)
@@ -102,12 +100,13 @@ class CircuitPsiInput:
         num_rows = train_rows + test_rows
         X_train = Matrix(train_rows, num_features, sfix)
         X_test = Matrix(test_rows, num_features, sfix)
+        mod = 2**32
         for i in range(alice_columns):
             tmp_array = sint.Array(num_rows)
             if self.share == 'add32':
                 tmp_array.input_from(0)
                 tmp_array += sint.get_input_from(1, size=num_rows)
-                tmp_array[:] %= 2**32
+                tmp_array[:] %= mod
             else:
                 @for_range_opt(num_rows)
                 def _(j):
@@ -122,10 +121,10 @@ class CircuitPsiInput:
             X_test.set_column(alice_columns + i, sint.get_input_from(1, size=test_rows))
         return X_train, X_test
 
-    def load_label_vector(self, label_owner, train_rows, test_rows):
+    def load_label_vector(self, party, train_rows, test_rows):
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
-        if label_owner == 'a':
+        if party == 0:
             if self.share == 'add32':
                 mod = 2**32
                 y_train.input_from(0)
@@ -163,8 +162,8 @@ class CrossPsiInput:
         X_train = Matrix(train_rows, num_features, sfix)
         X_test = Matrix(test_rows, num_features, sfix)
         mod = 2**64
+        tmp_array = sint.Array(num_rows)
         for i in range(num_features):
-            tmp_array = sint.Array(num_rows)
             tmp_array.input_from(0)
             tmp_array += sint.get_input_from(1, size=num_rows)
             tmp_array[:] %= mod
@@ -172,7 +171,7 @@ class CrossPsiInput:
             X_test.set_column(i, tmp_array[train_rows:])
         return X_train, X_test
 
-    def load_label_vector(self, label_owner, train_rows, test_rows):
+    def load_label_vector(self, party, train_rows, test_rows):
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
         mod = 2**64
@@ -193,8 +192,8 @@ class CrossPsiXorInput:
         num_rows = train_rows + test_rows
         X_train = Matrix(train_rows, num_features, sfix)
         X_test = Matrix(test_rows, num_features, sfix)
+        tmp_array = sint.Array(num_rows)
         for i in range(num_features):
-            tmp_array = sint.Array(num_rows)
             @for_range_opt(num_rows)
             def _(j):
                 tmp_array[j] = sint.bit_compose(x.bit_xor(y)
@@ -205,7 +204,7 @@ class CrossPsiXorInput:
             X_test.set_column(i, tmp_array[train_rows:])
         return X_train, X_test
 
-    def load_label_vector(self, label_owner, train_rows, test_rows):
+    def load_label_vector(self, party, train_rows, test_rows):
         y_train = Array(train_rows, sfix)
         y_test = Array(test_rows, sfix)
         @for_range_opt(train_rows)
@@ -238,6 +237,14 @@ def parse_feature_spec(format_str):
     
     else:
         raise ValueError(f"Invalid format: {format_str}")
+
+def get_party_from_char(ch):
+    if ch == 'a':
+        return 0
+    elif ch == 'b':
+        return 1
+    else:
+        raise ValueError(f"Unexpected character in group_by: {ch}")
 
 
 def mean_squared_error(y_true, y_pred, flag):
@@ -287,7 +294,7 @@ def main():
 
     flag_train, flag_test = provider.get_flag(rows_train, rows_test)
     X_train, X_test = provider.load_feature_matrix(alice_columns, bob_columns, rows_train, rows_test)
-    y_train, y_test = provider.load_label_vector(compiler.options.label_owner, rows_train, rows_test)
+    y_train, y_test = provider.load_label_vector(get_party_from_char(compiler.options.label_owner), rows_train, rows_test)
     
     linear = ml.SGDLinear(compiler.options.n_epochs, compiler.options.batch_size)
     linear.fit(X_train, y_train)
