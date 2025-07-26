@@ -55,9 +55,9 @@ class PsiInput:
 class PrivateIdInput:
     def get_flag(self, train_rows, test_rows):
         flag_train = Array(train_rows, sint)
+        flag_test = Array(test_rows, sint)
         flag_train.input_from(0)
         flag_train *= sint.get_input_from(1, size=train_rows)
-        flag_test = Array(test_rows, sint)
         flag_test.input_from(0)
         flag_test *= sint.get_input_from(1, size=test_rows)
         return flag_train, flag_test
@@ -89,12 +89,12 @@ class CircuitPsiInput:
     def get_flag(self, train_rows, test_rows):
         flag_train = Array(train_rows, sint)
         flag_test = Array(test_rows, sint)
-        @for_range_opt(train_rows)
-        def _(i):
-            flag_train[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % 2
-        @for_range_opt(test_rows)
-        def _(i):
-            flag_test[i] = (sint.get_input_from(0) + sint.get_input_from(1)) % 2
+        flag_train.input_from(0)
+        flag_train += sint.get_input_from(1, size=train_rows)
+        flag_train[:] %= 2
+        flag_test.input_from(0)
+        flag_test += sint.get_input_from(1, size=test_rows)
+        flag_test[:] %= 2
         return flag_train, flag_test
 
     def load_label_vector(self, label_owner, train_rows, test_rows):
