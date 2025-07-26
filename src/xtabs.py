@@ -330,7 +330,7 @@ def xtabs_avg2(flag, group_by, values, stype_val, cat_len_1, cat_len_2):
 def xtabs_std1(flag, group_by, values, stype_val, cat_len, ddof=0):
     thread_sums = stype_val.Tensor([n_threads, cat_len])
     thread_counts = sint.Tensor([n_threads, cat_len])
-    thread_variances = sint.Tensor([n_threads, cat_len])
+    thread_variances = sfix.Tensor([n_threads, cat_len])
     categories = range(cat_len)
 
     if flag:
@@ -363,7 +363,7 @@ def xtabs_std1(flag, group_by, values, stype_val, cat_len, ddof=0):
         @threaded(n_threads, group_by.shape[0])
         def _(i, i_thread):
             for cat in categories:
-                thread_variances[i_thread][cat] += (group_by[i] == cat) * ((values[i] - averages[cat]) ** 2) * flag[i]
+                thread_variances[i_thread][cat] += ((group_by[i] == cat) & flag[i]) * ((values[i] - averages[cat]) ** 2) 
     else:
         @threaded(n_threads, group_by.shape[0])
         def _(i, i_thread):
