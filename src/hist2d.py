@@ -1,4 +1,4 @@
-from Compiler.types import Array, Matrix, sint, sfix
+from Compiler.types import Array, Matrix, sint, sfix, sintbit
 from Compiler.library import print_ln, for_range_opt
 from Compiler.compilerLib import Compiler
 import pandas as pd
@@ -61,11 +61,11 @@ class PsiInput:
 
 class PrivateIdInput:
     def get(self, rows, secret_type):
-        flag = Array(rows, sint)
+        flag = Array(rows, sintbit)
         alice = Array(rows, secret_type)
         bob = Array(rows, secret_type)
         flag.input_from(0)
-        flag *= sint.get_input_from(1, size=rows)
+        flag[:] &= sintbit.get_input_from(1, size=rows) 
         alice.input_from(0)
         bob.input_from(1)
         return flag, alice, bob
@@ -74,12 +74,11 @@ class CircuitPsiInput:
     def __init__(self, share):
         self.share = share
     def get(self, rows, secret_type):
-        flag = Array(rows, sint)
+        flag = Array(rows, sintbit)
         alice = Array(rows, sint)
         bob = Array(rows, secret_type)
         flag.input_from(0)
-        flag += sint.get_input_from(1, size=rows)
-        flag[:] %= 2
+        flag[:] ^= sintbit.get_input_from(1, size=rows)
         if self.share == 'add32':
             alice.input_from(0)
             alice += sint.get_input_from(1, size=rows)
@@ -139,7 +138,7 @@ def hist2d(flag, input_x, input_y, edges_x, edges_y):
             ix = digitize(input_x[i], edges_x)
             iy = digitize(input_y[i], edges_y)
             for y in bins_y:
-                m = (iy==y) * flag[i]
+                m = (iy==y) & flag[i]
                 for x in bins_x:
                     thread_hist2d[i_thread][y][x] += (ix==x) * m
     else:
