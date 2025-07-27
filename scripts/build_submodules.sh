@@ -88,7 +88,6 @@ build_kunlun() (
     fi
     vlog "Building Kunlun module"
     cd match/Kunlun
-    chmod +x ./install_openssl.sh
     vlog "Running OpenSSL installer"
     ./install_openssl.sh
     mkdir -p build
