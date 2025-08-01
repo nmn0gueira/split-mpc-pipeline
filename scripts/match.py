@@ -148,7 +148,7 @@ def run_protocol(protocol_name, input_path, input_id_path, output_path, address,
         "cpsi": lambda: ['./match/volepsi/out/build/linux/frontend/frontend', '-cpsi', '-in', effective_input_path, '-out', output_path, '-ip', address, '-r', str(1) if is_server else str(0)] + protocol_args,
         "ps3i": lambda: ['./match/Private-ID/target/release/cross-psi-server' if is_server else './match/Private-ID/target/release/cross-psi-client', '--input', effective_input_path, '--output', output_path, '--host' if is_server else '--company', address] + protocol_args,
         "ps3i-xor": lambda: ['./match/Private-ID/target/release/cross-psi-xor-server' if is_server else './match/Private-ID/target/release/cross-psi-xor-client', '--input', effective_input_path, '--output', output_path, '--host' if is_server else '--company', address] + protocol_args,
-        "pid": lambda: ['./match/Kunlun/build/main_pid', effective_input_path, output_path]
+        "pid": lambda: ['./match/Kunlun/build/main_pid', '--in', effective_input_path, '--out', output_path, '--address', address] + protocol_args
     }
 
     if protocol_name not in protocol_commands:
