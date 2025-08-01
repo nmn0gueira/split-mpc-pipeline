@@ -187,7 +187,7 @@ def print_compiler_options():
 @compiler.register_function('hist2d')
 def main():
     print_compiler_options()
-    df = pd.read_csv('Player-Data/public/data.csv', header=None)
+    df = pd.read_csv('Player-Data/public.csv', header=None)
     # Array of clear types instead of list of python types is used due to incompatibility between certain types (e.g., python floats and sints)
     # Negligible communication difference but relatively worse number of comm. rounds
     (secret_type, clear_type) = (sfix, cfix) if 'fix' in compiler.prog.args else (sint, cint)
