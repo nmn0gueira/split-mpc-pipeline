@@ -1,4 +1,4 @@
-from Compiler.types import Array, Matrix, sint, sfix, sintbit
+from Compiler.types import Array, Matrix, sint, sfix, sintbit, cfix, cint
 from Compiler.library import print_ln, for_range_opt
 from Compiler.compilerLib import Compiler
 import pandas as pd
@@ -39,6 +39,20 @@ def threaded(n_threads, n_loops):
         compiler.prog.join_tapes(threads)
 
     return decorator
+
+
+def get_bin_edges(values, value_type):
+    num_edges = len(values)
+    bin_edges = Array(num_edges, value_type)
+    first_value = values[0]
+    bin_edges[0] = value_type(first_value)
+    
+    for i in range(1, num_edges):
+        if (values[i] <= values[i-1]):
+            raise ValueError("Bin edges are not in ascending order")
+        bin_edges[i] = value_type(values[i])
+
+    return bin_edges
 
 
 def mux(cond, true_val, false_val):
@@ -173,10 +187,12 @@ def print_compiler_options():
 @compiler.register_function('hist2d')
 def main():
     print_compiler_options()
-    df = pd.read_csv('Player-Data/public/data.csv', header=None)    # Should contain the edges ordered in two columns
-    # Both lists should be of either int or float type depending on the respective input data
-    edges_x = df.iloc[:,0].values.tolist()
-    edges_y = df.iloc[:,1].values.tolist()
+    df = pd.read_csv('Player-Data/public/data.csv', header=None)
+    # Array of clear types instead of list of python types is used due to incompatibility between certain types (e.g., python floats and sints)
+    # Negligible communication difference but relatively worse number of comm. rounds
+    (secret_type, clear_type) = (sfix, cfix) if 'fix' in compiler.prog.args else (sint, cint)
+    edges_x = get_bin_edges(df.iloc[:,0].values.tolist(), clear_type)
+    edges_y = get_bin_edges(df.iloc[:,1].values.tolist(), clear_type)
     fact = {
         'psi': PsiInput,
         'pid': PrivateIdInput,
@@ -185,7 +201,7 @@ def main():
         'ps3i-xor': CrossPsiXorInput,
     }
     provider = fact[compiler.options.protocol]()
-    flag, alice, bob = provider.get(compiler.options.rows, sfix if 'fix' in compiler.prog.args else sint)
+    flag, alice, bob = provider.get(compiler.options.rows, secret_type)
     hist2d(flag, alice, bob, edges_x, edges_y)
 
 
