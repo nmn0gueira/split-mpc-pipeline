@@ -1,4 +1,4 @@
-import argparse, random, os, math, errno
+import argparse, random, os, math, errno, string
 import numpy as np
 import pandas as pd
 from operator import itemgetter
@@ -9,119 +9,89 @@ from sklearn.metrics import mean_squared_error
 
 np.set_printoptions(legacy='1.25')
 
-BASE_DIR = "data/"
+BASE_DIR = "data"
 PARTY_ALICE = "alice"
 PARTY_BOB = "bob"
 PARTY_PUBLIC = "public"
+BITSIZE = 32
 
 def create_dirs(program):
-    dirname = BASE_DIR + program + "/"
-    alice_dir = dirname + PARTY_ALICE
-    bob_dir = dirname + PARTY_BOB
-    public_dir = dirname + PARTY_PUBLIC
-    if not os.path.exists(alice_dir) or not os.path.exists(bob_dir) or not os.path.exists(public_dir):
+    dirname = os.path.join(BASE_DIR, program)
+    if not os.path.exists(dirname):
         try:
-            os.makedirs(alice_dir)
-            os.makedirs(bob_dir)
-            os.makedirs(public_dir)
+            os.makedirs(dirname)
         except OSError as e:
             if e.errno != errno.EEXIST: raise
-
-
-def write_to_csv(program, party, *columns):
-    filepath = os.path.join(BASE_DIR, program, party, "data.csv")
-    data = {}
-    if isinstance(columns[0], (list, np.ndarray)):
-        for i, column in enumerate(columns):
-            data["col" + str(i)] = column
-    else:
-        data["col0"] = columns
-
-    pd.DataFrame(data).to_csv(filepath, index=False, header=False)
-
-
-def get_rand_list(bits, l):
-    return [random.getrandbits(bits) for _ in range(l)]
 
 
 def gen_input(n_bits, l):
     if (n_bits > 32):
         raise ValueError("invalid bit length---this test can only handle up to 32 bits")
 
-    bits = int((n_bits - int(math.log(l, 2))) / 2)  # Ensure number of bits avoids overflow for large l
+    bits = int((n_bits - int(math.log(l, 2))) / 2)
     
-    list_a = get_rand_list(bits, l)
-    list_b = get_rand_list(bits, l)
-    
-    return list_a, list_b
+    return [random.getrandbits(bits) for _ in range(l)]
 
-def get_ids(l, intersection_size):
-    ids_a = []
-    ids_b = []
 
-    for i in range(l):
-        id_a = 'user' + str(i + 1)
+def generate_random_id(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-        id_b = 'user' + str(l + i + 1)
-        if np.random.rand() < intersection_size:
-            id_b = id_a
 
-        ids_a.append(id_a)
-        ids_b.append(id_b)
+def generate_unique_ids(count, exclude_ids=None):
+    ids = set()
+    exclude_ids = exclude_ids or set()
+    while len(ids) < count:
+        new_id = generate_random_id()
+        if new_id not in ids and new_id not in exclude_ids:
+            ids.add(new_id)
+    return ids
+
+
+def get_ids(size_a, size_b, size_intersection):
+    assert size_intersection <= min(size_a, size_b), "Intersection size cannot be larger than the size of either input"
+    intersection_ids = generate_unique_ids(size_intersection)
+    ids_a = intersection_ids | generate_unique_ids(size_a - size_intersection, exclude_ids=intersection_ids)
+    ids_b = intersection_ids | generate_unique_ids(size_b - size_intersection, exclude_ids=intersection_ids)
 
     return ids_a, ids_b
 
 
-
-def gen_xtabs_input(l, intersection_size, n_categories_a, n_categories_b):
+def gen_xtabs_input(size_a, size_b, n_categories_a, n_categories_b):
     '''
     Generates input for xtabs program. This input functions as if both parties already have their input ordered. One party has the (typically 
     categorical) value to group by (e.g. education level) and the other has the (typically continuous) values to aggregate upon (e.g. salary). The 
     output will depend on the function that is used to aggregate the values.
     '''
-    NUM_CATEGORIES_DEFAULT = 4
-    if n_categories_a is None:
-        n_categories_a = NUM_CATEGORIES_DEFAULT
-    if n_categories_b is None:
-        n_categories_b = n_categories_a
+    categories_a, categories_b = [random.randrange(n_categories_a) for _ in range(size_a)], [random.randrange(n_categories_b) for _ in range(size_b)]
+    values_a, values_b = gen_input(BITSIZE, size_a), gen_input(BITSIZE, size_b)
 
-    ids_a, ids_b = get_ids(l, intersection_size)
-    categories_a, categories_b = [random.randrange(n_categories_a) for _ in range(l)], [random.randrange(n_categories_b) for _ in range(l)]
-    values_a, values_b = gen_input(32, l)
-
-    print_xtabs(ids_a, ids_b, categories_a, categories_b, values_b)
-    return (ids_a, categories_a, values_a), (ids_b, categories_b, values_b)
+    return (categories_a, values_a), (categories_b, values_b)
 
 
-def print_xtabs(ids_a, ids_b, categories_a, categories_b, values):
+def print_xtabs(categories_a, categories_b, values):
     input_len = len(categories_a)
 
-    # Sums and averages
     sums = {}
     averages = {}
     counts = {}
 
-    # Frequency counts
     frequencies = {}    # absolute frequencies
     modes = {}
 
-    # Std
     std_values = {}
     std0 = {}   # ddof=0
     std1 = {}   # ddof=1
 
     for i in range(input_len):
-        if ids_a[i] == ids_b[i]:
-            sums[categories_a[i]] = sums.get(categories_a[i], 0) + values[i]
-            counts[categories_a[i]] = counts.get(categories_a[i], 0) + 1
-            std_values[categories_a[i]] = std_values.get(categories_a[i], [])
-            std_values[categories_a[i]].append(values[i])
+        sums[categories_a[i]] = sums.get(categories_a[i], 0) + values[i]
+        counts[categories_a[i]] = counts.get(categories_a[i], 0) + 1
+        std_values[categories_a[i]] = std_values.get(categories_a[i], [])
+        std_values[categories_a[i]].append(values[i])
 
-            frequency_dict = frequencies.get(categories_a[i], {})
-            frequency_dict[categories_b[i]] = frequency_dict.get(categories_b[i], 0) + 1
-            frequencies[categories_a[i]] = frequency_dict
+        frequency_dict = frequencies.get(categories_a[i], {})
+        frequency_dict[categories_b[i]] = frequency_dict.get(categories_b[i], 0) + 1
+        frequencies[categories_a[i]] = frequency_dict
 
-    # Calculate averages
     for key in sums:
         averages[key] = sums[key] / counts[key]
     
@@ -168,22 +138,20 @@ def print_xtabs(ids_a, ids_b, categories_a, categories_b, values):
     std1 = {}   # ddof=1
     
     for i in range(input_len):
-        if ids_a[i] == ids_b[i]:
-            sum_dict = sums.get(categories_a[i], {})
-            sum_dict[categories_b[i]] = sum_dict.get(categories_b[i], 0) + values[i]
-            sums[categories_a[i]] = sum_dict
+        sum_dict = sums.get(categories_a[i], {})
+        sum_dict[categories_b[i]] = sum_dict.get(categories_b[i], 0) + values[i]
+        sums[categories_a[i]] = sum_dict
 
-            value_dict = std_values.get(categories_a[i], {})
-            value_dict[categories_b[i]] = value_dict.get(categories_b[i], [])
-            value_dict[categories_b[i]].append(values[i])
-            std_values[categories_a[i]] = value_dict
+        value_dict = std_values.get(categories_a[i], {})
+        value_dict[categories_b[i]] = value_dict.get(categories_b[i], [])
+        value_dict[categories_b[i]].append(values[i])
+        std_values[categories_a[i]] = value_dict
 
     # Divide by each time a category combo appeared
     for key in sums:
         averages[key] = {}  # Create dictionary
         for k in sums[key]:
             averages[key][k] = sums[key][k] / frequencies[key][k]
-
 
     for key in std_values:
         std0[key] = {}
@@ -205,84 +173,52 @@ def print_xtabs(ids_a, ids_b, categories_a, categories_b, values):
     print(f"Expected values (std1): {sorted(std1.items())}\n")
 
 
-def gen_linreg_input(l, intersection_size, n_features, n_labels, scale_features=True, normalize_labels=True):
-    NUM_FEATURES_DEFAULT = 1
-    NUM_LABELS_DEFAULT = 1
-
-    if n_features is None:
-        n_features = NUM_FEATURES_DEFAULT
-    if n_labels is None:
-        n_labels = NUM_LABELS_DEFAULT
+def gen_linreg_input(size_a, size_b, n_features_a, n_features_b, scale_features=True, normalize_labels=True):
+    def scale_data(data):
+        mean = np.mean(data, axis=0)
+        std = np.std(data, axis=0)
+        return (data - mean) / std
+    def normalize_data(data):
+        max_value = np.max(data, axis=0)
+        return data / max_value
     
-    X, Y = make_regression(n_samples=l, n_features=n_features, n_targets=n_labels)
-
-    Y = Y.reshape(-1, n_labels)  # Ensure y is a 2D array with shape (l, n_labels)
+    X_a, y_a = make_regression(n_samples=size_a, n_features=n_features_a)
+    X_b, y_b = make_regression(n_samples=size_b, n_features=n_features_b)
+    y_a = y_a.reshape(-1, 1)  # Ensure y is a 2D array with shape (size, n_labels)
+    y_b = y_b.reshape(-1, 1) 
 
     if scale_features:
-        X = get_scaled(X)
+        X_a = scale_data(X_a)
+        X_b = scale_data(X_b)
 
     if normalize_labels:
-        Y = get_normalized(Y)
+        y_a = normalize_data(y_a)
+        y_b = normalize_data(y_b)
 
-    ids_a, ids_b = get_ids(l, intersection_size)
-    X = np.hstack((np.array(ids_a).reshape(-1, 1), X))
-    Y = np.hstack((np.array(ids_b).reshape(-1, 1), Y))
-
-    print_linreg(X, Y)
-    return X.transpose(), Y.transpose()
-
-
-def get_scaled(features):
-    mean = np.mean(features, axis=0)
-    std = np.std(features, axis=0)
-    scaled_features = (features - mean) / std
-    return scaled_features
-
-
-def get_normalized(labels):
-    max_label = np.max(labels, axis=0)
-    normalized_labels = labels / max_label
-    return normalized_labels
+    return (X_a, y_a), (X_b, y_b)
 
 
 def print_linreg(X, Y):
     X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
-    sample_weights_train = [1 if X_train[i, 0] == Y_train[i, 0] else 0 for i in range(len(X_train))]
-    sample_weights_test = [1 if X_test[i, 0] == Y_test[i, 0] else 0 for i in range(len(X_test))]
-    
-    # Remove ids column from X_train and Y_train
-    X_train = np.array(X_train[:, 1:], dtype=np.float64)
-    X_test = np.array(X_test[:, 1:], dtype=np.float64)
-    Y_train = np.array(Y_train[:, 1:], dtype=np.float64)
-    Y_test = np.array(Y_test[:, 1:], dtype=np.float64)
-
+    print("Training data (X):\n", X_train)
+    print("Training labels (Y):\n", Y_train)
     model = LinearRegression()
-    model.fit(X_train, Y_train, sample_weight=sample_weights_train)
+    model.fit(X_train, Y_train)
     print("Expected weights (w):\n", model.coef_)
     print("Expected intercept:\n", model.intercept_)
-    print("Expected test error of model (MSE):", mean_squared_error(Y_test, model.predict(X_test), sample_weight=sample_weights_test))
+    print("Expected test error of model (MSE):", mean_squared_error(Y_test, model.predict(X_test)))
 
 
-
-def gen_hist2d_input(l, intersection_size, n_bins_x, n_bins_y):
-    NUM_BINS_DEFAULT = 5
-    if n_bins_x is None:
-        n_bins_x = NUM_BINS_DEFAULT
-    if n_bins_y is None:
-        n_bins_y = n_bins_x
-    
-    values_a, values_b = gen_input(32, l) 
+def gen_hist2d_input(size_a, size_b, n_bins_x, n_bins_y):
+    values_a, values_b = gen_input(BITSIZE, size_a), gen_input(BITSIZE, size_b)
 
     bin_edges_x = np.linspace(min(values_a), max(values_a), n_bins_x + 1)
     bin_edges_y = np.linspace(min(values_b), max(values_b), n_bins_y + 1)
 
-    ids_a, ids_b = get_ids(l, intersection_size)
-    print_hist2d(ids_a, ids_b, values_a, values_b, bin_edges_x, bin_edges_y)
-
-    return (ids_a, values_a), (ids_b, values_b), (bin_edges_x, bin_edges_y)
+    return values_a, values_b, (bin_edges_x, bin_edges_y)
 
 
-def print_hist2d(ids_a, ids_b, values_a, values_b, bin_edges_x, bin_edges_y):
+def print_hist2d(values_a, values_b, bin_edges_x, bin_edges_y):
     input_size = len(values_a)
     num_bins_x = len(bin_edges_x) - 1
     num_bins_y = len(bin_edges_y) - 1
@@ -290,8 +226,6 @@ def print_hist2d(ids_a, ids_b, values_a, values_b, bin_edges_x, bin_edges_y):
     histogram = [[0] * num_bins_y for _ in range(num_bins_x)]
     
     for i in range(input_size):
-        if ids_a[i] != ids_b[i]:
-            continue
         x_val = values_a[i]
         y_val = values_b[i]
         
@@ -312,21 +246,18 @@ def print_hist2d(ids_a, ids_b, values_a, values_b, bin_edges_x, bin_edges_y):
         histogram[x_index][y_index] += 1
 
     print("2D Histogram (Text Representation):")
-
     try:
-        # Print the y-axis labels (bin edges)
         print("    ", end="")
         for x_bin in bin_edges_x:
             print(f"{round(x_bin, 2):>5}", end=" ")
         print()
         
-        # Print the histogram rows
         for i, row in enumerate(histogram):
-            print(f"{round(bin_edges_y[i], 2):>5} ", end="")  # Print x-axis labels (bin edges)
+            print(f"{round(bin_edges_y[i], 2):>5} ", end="")
             for count in row:
-                print(f"{count:>5}", end=" ")  # Print the counts for each bin
+                print(f"{count:>5}", end=" ")
             print()
-        print(f"{round(bin_edges_y[-1], 2):>5} ", end="")  # Print x-axis labels (bin edges)
+        print(f"{round(bin_edges_y[-1], 2):>5} ", end="")
     except IndexError: # If the dimensions are different or something else goes wrong, just print the raw data
         print("Error printing histogram, printing raw data instead:")
         for y in range(num_bins_y):
@@ -335,39 +266,67 @@ def print_hist2d(ids_a, ids_b, values_a, values_b, bin_edges_x, bin_edges_y):
 
 
 if __name__ == "__main__":
-    PROGRAMS = {
-        "xtabs": gen_xtabs_input,
-        "linreg": gen_linreg_input,
-        "hist2d": gen_hist2d_input
-    }
     parser = argparse.ArgumentParser(
         description='generates input for mp-spdz sample programs')
     
-    parser.add_argument('-e', default="xtabs", choices = PROGRAMS,
+    parser.add_argument('-e', default="xtabs", choices = ["xtabs", "linreg", "hist2d"],
         help="program selection")
-    parser.add_argument('-l', default=10, type=int, 
-        help="array length")
-    parser.add_argument('-i', default=0.5, type=float,
-        help="intersection size, i.e. the probability that a user in alice's input is also in bob's input (default: 0.5)")
-    parser.add_argument('-x', type=int,
-        help="number of categories, features or bins of alice (depending on the program)")
-    parser.add_argument('-y', type=int,
-        help="number of categories, labels or bins of bob (depending on the program)")
+    parser.add_argument('-a', default=10, type=int, 
+        help="alice's input size (default: 10)")
+    parser.add_argument('-b', default=10, type=int,
+        help="bob's input size (default: 10)")
+    parser.add_argument('-i', default=0, type=float,
+        help="intersection size (default: 0)")
+    parser.add_argument('-ca', default=4, type=int,
+        help="number of categories for alice used in xtabs program (default: 4)")
+    parser.add_argument('-cb', default=4, type=int,
+        help="number of categories for bob used in xtabs program (default: 4)")
+    parser.add_argument('-xa', default=5, type=int,
+        help="number of features of alice used in linreg program (default: 5)")
+    parser.add_argument('-xb', default=5, type=int,
+        help="number of features of bob used in linreg program (default: 5)")
+    parser.add_argument('-ba', default=5, type=int,
+        help="number of bins for alice used in hist2d program (default: 1)")
+    parser.add_argument('-bb', default=5, type=int,
+        help="number of bins for bob used in hist2d program (default: 1)")
     
     args = parser.parse_args()
 
     create_dirs(args.e)
 
-    program_function = PROGRAMS.get(args.e)
+    ids_a, ids_b = get_ids(args.a, args.b, args.i)
+    alice_data = pd.DataFrame(ids_a)
+    bob_data = pd.DataFrame(ids_b)
+    public_data = pd.DataFrame()
 
-    if program_function:
-        data = program_function(args.l, args.i, args.x, args.y)
-        alice_data = data[0]
-        bob_data = data[1]
-        write_to_csv(args.e, PARTY_ALICE, *alice_data)
-        write_to_csv(args.e, PARTY_BOB, *bob_data)
-        if len(data) > 2:   # If the program has public data, write it to the public directory
-            write_to_csv(args.e, PARTY_PUBLIC, *data[2]) # Pandas cannot register a csv with differing ammounts of items between columns which is why x and y must be the same for hist2d in this version
+    if args.e == "xtabs":
+        a, b = gen_xtabs_input(args.a, args.b, args.ca, args.cb)
+        alice_data = pd.concat([alice_data, pd.DataFrame(zip(*a))], axis=1, ignore_index=True)
+        bob_data = pd.concat([bob_data, pd.DataFrame(zip(*b))], axis=1, ignore_index=True)
+        intersection_df = alice_data.merge(bob_data, on=0, how='inner')
+        print_xtabs(intersection_df.iloc[:,1].values, intersection_df.iloc[:,3].values, intersection_df.iloc[:, 4].values)
+    
+    elif args.e == "linreg":
+        a, b = gen_linreg_input(args.a, args.b, args.xa, args.xb)
+        alice_data = pd.concat([alice_data, pd.DataFrame(np.hstack(a))], axis=1, ignore_index=True)
+        bob_data = pd.concat([bob_data, pd.DataFrame(np.hstack(b))], axis=1, ignore_index=True)
+        intersection_df = alice_data.merge(bob_data, on=0, how='inner')
+        features_a = intersection_df.iloc[:, 1: args.xa + 1].values
+        features_b = intersection_df.iloc[:, args.xa + 2: args.xa + args.xb + 2].values
+        X = np.hstack((features_a, features_b))
+        y = intersection_df.iloc[:, -1].values   # Use bob's labels
+        print_linreg(X, y)
 
+    elif args.e == "hist2d":
+        a, b, public_data = gen_hist2d_input(args.a, args.b, args.ba, args.bb)
+        alice_data = pd.concat([alice_data, pd.DataFrame(a)], axis=1, ignore_index=True)
+        bob_data = pd.concat([bob_data, pd.DataFrame(b)], axis=1, ignore_index=True)
+        public_data = pd.DataFrame(zip(*public_data))
+        print_hist2d(alice_data.iloc[:,1].values, bob_data.iloc[:,1].values, public_data.iloc[:,0].values, public_data.iloc[:,1].values)
+    
     else:
-        print(f"Unknown program: {args.e}") # Should not happen
+        print(f"Unknown program: {args.e}")
+    
+    alice_data.to_csv(os.path.join(BASE_DIR, args.e, f"{PARTY_ALICE}.csv"), index=False, header=False)
+    bob_data.to_csv(os.path.join(BASE_DIR, args.e, f"{PARTY_BOB}.csv"), index=False, header=False)
+    public_data.to_csv(os.path.join(BASE_DIR, args.e, f"{PARTY_PUBLIC}.csv"), index=False, header=False)
