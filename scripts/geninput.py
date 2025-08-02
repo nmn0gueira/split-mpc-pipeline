@@ -213,12 +213,14 @@ def print_linreg(X, Y, split=True):
     print("Expected intercept:\n", model.intercept_)
 
 
-def gen_hist2d_input(size_a, size_b, n_bins_x, n_bins_y):
+def gen_hist2d_input(size_a, size_b, n_bins_x, n_bins_y, round_edges=False):
     values_a, values_b = gen_input(BITSIZE, size_a), gen_input(BITSIZE, size_b)
 
     bin_edges_x = np.linspace(min(values_a), max(values_a), n_bins_x + 1)
     bin_edges_y = np.linspace(min(values_b), max(values_b), n_bins_y + 1)
-
+    if round_edges:
+        bin_edges_x = np.round(bin_edges_x).astype(int)
+        bin_edges_y = np.round(bin_edges_y).astype(int)
     return values_a, values_b, (bin_edges_x, bin_edges_y)
 
 
@@ -294,6 +296,7 @@ if __name__ == "__main__":
     hist2d_group = parser.add_argument_group('HIST2D Program Arguments')
     hist2d_group.add_argument('-ba', default=5, type=int, help="Number of bins for Alice (default: 5)")
     hist2d_group.add_argument('-bb', default=5, type=int, help="Number of bins for Bob (default: 5)")
+    hist2d_group.add_argument('--round-edges', action='store_true', help="Round bin edges to integers")
     
     args = parser.parse_args()
 
@@ -330,11 +333,12 @@ if __name__ == "__main__":
         print_linreg(X, y, split=False)
 
     elif args.e == "hist2d":
-        a, b, public_data = gen_hist2d_input(size_alice, size_bob, args.ba, args.bb)
+        a, b, public_data = gen_hist2d_input(size_alice, size_bob, args.ba, args.bb, round_edges=args.round_edges)
         alice_data = pd.concat([alice_data, pd.DataFrame(a)], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(b)], axis=1, ignore_index=True)
+        intersection_df = alice_data.merge(bob_data, on=0, how='inner')
         public_data = pd.DataFrame(zip(*public_data))
-        print_hist2d(alice_data.iloc[:,1].values, bob_data.iloc[:,1].values, public_data.iloc[:,0].values, public_data.iloc[:,1].values)
+        print_hist2d(intersection_df.iloc[:,1].values, intersection_df.iloc[:,2].values, public_data.iloc[:,0].values, public_data.iloc[:,1].values)
     
     else:
         print(f"Unknown program: {args.e}")
