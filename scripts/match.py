@@ -106,7 +106,7 @@ def post_process_ps3i_xor(output_path):
     TEMP_FILES.append(comapny_feature_path)
     TEMP_FILES.append(partner_feature_path)
     output_df_company = pd.read_csv(comapny_feature_path, header=None)
-    output_df_partner = pd.read_csv(output_df_partner, header=None)
+    output_df_partner = pd.read_csv(partner_feature_path, header=None)
     output_df = pd.concat([output_df_company, output_df_partner], axis=1)
     output_df.to_csv(output_path, index=False, header=False)
 
