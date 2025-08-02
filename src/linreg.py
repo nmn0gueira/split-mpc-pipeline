@@ -28,196 +28,136 @@ if not compiler.options.rows or not compiler.options.feature_spec or not compile
 
 
 class PsiInput:
-    def get_flag(self, train_rows, test_rows):
-        return None, None
+    def get_flag(self, rows):
+        return None
     
-    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
+    def load_feature_matrix(self, alice_columns, bob_columns, rows):
         num_features = alice_columns + bob_columns
-        X_train = Matrix(train_rows, num_features, sfix)
-        X_test = Matrix(test_rows, num_features, sfix)
+        X = Matrix(rows, num_features, sfix)
         for i in range(alice_columns):
-            X_train.set_column(i, sfix.get_input_from(0, size=train_rows))
-            X_test.set_column(i, sfix.get_input_from(0, size=test_rows)) 
+            X.set_column(i, sfix.get_input_from(0, size=rows))
         for i in range(bob_columns):
-            X_train.set_column(alice_columns + i, sfix.get_input_from(1, size=train_rows))
-            X_test.set_column(alice_columns + i, sfix.get_input_from(1, size=test_rows)) 
+            X.set_column(alice_columns + i, sfix.get_input_from(1, size=rows))
+        return X
 
-        return X_train, X_test
-
-    def load_label_vector(self, party, train_rows, test_rows):
-        y_train = Array(train_rows, sfix)
-        y_test = Array(test_rows, sfix)
-        y_train.input_from(party)
-        y_test.input_from(party)
-        return y_train, y_test
+    def load_label_vector(self, party, rows):
+        y = Array(rows, sfix)
+        y.input_from(party)
+        return y
 
 class PrivateIdInput:
-    def get_flag(self, train_rows, test_rows):
-        flag_train = Array(train_rows, sintbit)
-        flag_test = Array(test_rows, sintbit)
-        flag_train.input_from(0)
-        flag_train[:] &= sintbit.get_input_from(1, size=train_rows)
-        flag_test.input_from(0)
-        flag_test[:] &= sintbit.get_input_from(1, size=test_rows)
-        return flag_train, flag_test
+    def get_flag(self, rows):
+        flag = Array(rows, sintbit)
+        flag.input_from(0)
+        flag[:] &= sintbit.get_input_from(1, size=rows)
+        return flag
 
-    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
+    def load_feature_matrix(self, alice_columns, bob_columns, rows):
         num_features = alice_columns + bob_columns
-        X_train = Matrix(train_rows, num_features, sfix)
-        X_test = Matrix(test_rows, num_features, sfix)
+        X = Matrix(rows, num_features, sfix)
         for i in range(alice_columns):
-            X_train.set_column(i, sfix.get_input_from(0, size=train_rows))
-            X_test.set_column(i, sfix.get_input_from(0, size=test_rows)) 
+            X.set_column(i, sfix.get_input_from(0, size=rows))
         for i in range(bob_columns):
-            X_train.set_column(alice_columns + i, sfix.get_input_from(1, size=train_rows))
-            X_test.set_column(alice_columns + i, sfix.get_input_from(1, size=test_rows)) 
-        return X_train, X_test
+            X.set_column(alice_columns + i, sfix.get_input_from(1, size=rows))
+        return X
 
-    def load_label_vector(self, party, train_rows, test_rows):
-        y_train = Array(train_rows, sfix)
-        y_test = Array(test_rows, sfix)
-        y_train.input_from(party)
-        y_test.input_from(party)
-        return y_train, y_test 
+    def load_label_vector(self, party, rows):
+        y = Array(rows, sfix)
+        y.input_from(party)
+        return y
 
 class CircuitPsiInput:
     def __init__(self, share):
         self.share = share
 
-    def get_flag(self, train_rows, test_rows):
-        flag_train = Array(train_rows, sintbit)
-        flag_test = Array(test_rows, sintbit)
-        flag_train.input_from(0)
-        flag_train[:] ^= sintbit.get_input_from(1, size=train_rows)
-        flag_test.input_from(0)
-        flag_test[:] ^= sintbit.get_input_from(1, size=test_rows)
-        return flag_train, flag_test
+    def get_flag(self, rows):
+        flag = Array(rows, sintbit)
+        flag.input_from(0)
+        flag[:] ^= sintbit.get_input_from(1, size=rows)
+        return flag
 
-    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
+    def load_feature_matrix(self, alice_columns, bob_columns, rows):
         num_features = alice_columns + bob_columns
-        num_rows = train_rows + test_rows
-        X_train = Matrix(train_rows, num_features, sfix)
-        X_test = Matrix(test_rows, num_features, sfix)
+        X = Matrix(rows, num_features, sfix)
         mod = 2**32
         for i in range(alice_columns):
-            tmp_array = sint.Array(num_rows)
             if self.share == 'add32':
-                tmp_array.input_from(0)
-                tmp_array += sint.get_input_from(1, size=num_rows)
-                tmp_array[:] %= mod
+                X.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
             else:
-                @for_range_opt(num_rows)
+                @for_range_opt(rows)
                 def _(j):
-                    tmp_array[j] = sint.bit_compose(x.bit_xor(y)
+                    X[j][i] = sint.bit_compose(x.bit_xor(y)
                                 for x,y in zip(
                                     sint.get_input_from(0).bit_decompose(),
                                     sint.get_input_from(1).bit_decompose()))
-            X_train.set_column(i, tmp_array[:train_rows])
-            X_test.set_column(i, tmp_array[train_rows:])
         for i in range(bob_columns):
-            X_train.set_column(alice_columns + i, sint.get_input_from(1, size=train_rows))
-            X_test.set_column(alice_columns + i, sint.get_input_from(1, size=test_rows))
-        return X_train, X_test
+            X.set_column(alice_columns + i, sint.get_input_from(1, size=rows))    
+        return X
 
-    def load_label_vector(self, party, train_rows, test_rows):
-        y_train = Array(train_rows, sfix)
-        y_test = Array(test_rows, sfix)
+    def load_label_vector(self, party, rows):
         if party == 0:
+            y = Array(rows, sfix)
             if self.share == 'add32':
-                mod = 2**32
-                y_train.input_from(0)
-                y_train += sint.get_input_from(1, size=train_rows)
-                y_train[:] %= mod
-                y_test.input_from(0)
-                y_test += sint.get_input_from(1, size=test_rows)
-                y_test[:] %= mod
+                y.input_from(0)
+                y += sint.get_input_from(1, size=rows)
+                y[:] %= 2**32
             else:
-                @for_range_opt(train_rows)
+                @for_range_opt(rows)
                 def _(i):
-                    y_train[i] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
-                @for_range_opt(test_rows)
-                def _(i):
-                    y_test[i] = sint.bit_compose(x.bit_xor(y)
+                    y[i] = sint.bit_compose(x.bit_xor(y)
                                 for x,y in zip(
                                     sint.get_input_from(0).bit_decompose(),
                                     sint.get_input_from(1).bit_decompose()))
                 
         else:  # label_owner == 'b'
-            y_train.input_from(1)
-            y_test.input_from(1)
-        return y_train, y_test 
+            y = Array(rows, sfix)
+            y.input_from(1)
+        return y 
 
 class CrossPsiInput:
-    def get_flag(self, train_rows, test_rows):
+    def get_flag(self, rows):
         return None, None
     
-    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
+    def load_feature_matrix(self, alice_columns, bob_columns, rows):
         num_features = alice_columns + bob_columns
-        num_rows = train_rows + test_rows
-        X_train = Matrix(train_rows, num_features, sfix)
-        X_test = Matrix(test_rows, num_features, sfix)
+        X = Matrix(rows, num_features, sfix)
         mod = 2**64
-        tmp_array = sint.Array(num_rows)
         for i in range(num_features):
-            tmp_array.input_from(0)
-            tmp_array += sint.get_input_from(1, size=num_rows)
-            tmp_array[:] %= mod
-            X_train.set_column(i, tmp_array[:train_rows])
-            X_test.set_column(i, tmp_array[train_rows:])
-        return X_train, X_test
+            X.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
+        return X
 
-    def load_label_vector(self, party, train_rows, test_rows):
-        y_train = Array(train_rows, sfix)
-        y_test = Array(test_rows, sfix)
-        mod = 2**64
-        y_train.input_from(0)
-        y_train += sint.get_input_from(1, size=train_rows)
-        y_train[:] %= mod
-        y_test.input_from(0)
-        y_test += sint.get_input_from(1, size=test_rows)
-        y_test[:] %= mod
-        return y_train, y_test
+    def load_label_vector(self, party, rows):
+        y = Array(rows, sfix)
+        y.input_from(0)
+        y += sint.get_input_from(1, size=rows)
+        y[:] %= 2**64
+        return y
 
 class CrossPsiXorInput:
-    def get_flag(self, train_rows, test_rows):
+    def get_flag(self, rows):
         return None, None
     
-    def load_feature_matrix(self, alice_columns, bob_columns, train_rows, test_rows):
+    def load_feature_matrix(self, alice_columns, bob_columns, rows):
         num_features = alice_columns + bob_columns
-        num_rows = train_rows + test_rows
-        X_train = Matrix(train_rows, num_features, sfix)
-        X_test = Matrix(test_rows, num_features, sfix)
-        tmp_array = sint.Array(num_rows)
+        X = Matrix(rows, num_features, sfix)
         for i in range(num_features):
-            @for_range_opt(num_rows)
+            @for_range_opt(rows)
             def _(j):
-                tmp_array[j] = sint.bit_compose(x.bit_xor(y)
+                X[j][i] = sint.bit_compose(x.bit_xor(y)
                                 for x,y in zip(
                                     sint.get_input_from(0).bit_decompose(),
                                     sint.get_input_from(1).bit_decompose()))
-            X_train.set_column(i, tmp_array[:train_rows])
-            X_test.set_column(i, tmp_array[train_rows:])
-        return X_train, X_test
+        return X
 
-    def load_label_vector(self, party, train_rows, test_rows):
-        y_train = Array(train_rows, sfix)
-        y_test = Array(test_rows, sfix)
-        @for_range_opt(train_rows)
+    def load_label_vector(self, party, rows):
+        y = Array(rows, sfix)
+        @for_range_opt(rows)
         def _(i):
-            y_train[i] = sint.bit_compose(x.bit_xor(y)
+            y[i] = sint.bit_compose(x.bit_xor(y)
                                 for x,y in zip(
                                     sint.get_input_from(0).bit_decompose(),
                                     sint.get_input_from(1).bit_decompose()))
-        @for_range_opt(test_rows)
-        def _(i):
-            y_test[i] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
-        return y_train, y_test
+        return y
 
 
 def parse_feature_spec(format_str):
@@ -290,18 +230,24 @@ def main():
     rows_test = round(compiler.options.rows * compiler.options.test_size)
     alice_columns, bob_columns = parse_feature_spec(compiler.options.feature_spec)
 
-    flag_train, flag_test = provider.get_flag(rows_train, rows_test)
-    X_train, X_test = provider.load_feature_matrix(alice_columns, bob_columns, rows_train, rows_test)
-    y_train, y_test = provider.load_label_vector(get_party_from_char(compiler.options.label_owner), rows_train, rows_test)
+    flag = provider.get_flag(compiler.options.rows)
+    X = provider.load_feature_matrix(alice_columns, bob_columns, compiler.options.rows)
+    y = provider.load_label_vector(get_party_from_char(compiler.options.label_owner), compiler.options.rows)
     
     linear = ml.SGDLinear(compiler.options.n_epochs, compiler.options.batch_size)
-    linear.fit(X_train, y_train)
+    linear.fit(X.get_part(0, rows_train), y.get_part(0, rows_train))
     print_ln('Model Weights: %s', linear.opt.layers[0].W[:].reveal())
     print_ln('Model Bias: %s', linear.opt.layers[0].b.reveal())
 
     if 'mse' in compiler.prog.args:
-        y_pred = linear.predict(X_test)
-        mse = mean_squared_error(y_test, y_pred, flag_test)
+        if rows_test <= 0:
+            raise ValueError("Cannot calculate mse without test dataset. Compile with an appropriate test size.")
+        y_pred = linear.predict(X.get_part(rows_train, rows_test))
+        if flag:
+            flag_test = flag.get_part(rows_train, rows_test)
+        else:
+            flag_test = None
+        mse = mean_squared_error(y.get_part(rows_train, rows_test), y_pred, flag_test)
         print_ln('Mean Squared Error on Test Set: %s', mse.reveal())
     
 
