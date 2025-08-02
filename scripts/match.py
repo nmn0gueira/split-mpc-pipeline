@@ -77,7 +77,8 @@ def post_process_cpsi(input_path, output_path, is_server):
 
     # MP-SPDZ cannot handle hex strings directly so we convert them to integers
     for col in output_df.columns[1:]:
-        output_df[col] = output_df[col].map(lambda x: int(x, 16))
+        output_df[col] = output_df[col].map(lambda x: int(x, 16))  # Full share
+        #output_df[col] = output_df[col].map(lambda x: int(x[16:], 16)) # Second half of the share only
 
     if is_server:
         output_dir = os.path.dirname(output_path)
@@ -141,9 +142,15 @@ def post_process(protocol_name, input_path, output_path, **kwargs):
         logging.error(f"No transformation logic defined for '{protocol_name}'")
         sys.exit(1)
 
+def get_modification_time(file_path):
+    try:
+        return os.stat(file_path).st_mtime
+    except FileNotFoundError:
+        return None
 
 def run_protocol(protocol_name, input_path, input_id_path, output_path, address, protocol_args):
     is_server = address.split(':')[0] == '0.0.0.0'
+    modification_time = get_modification_time(output_path)
 
     effective_input_path = get_effective_input_path(protocol_name, input_path, input_id_path, is_server=is_server)
 
@@ -164,6 +171,8 @@ def run_protocol(protocol_name, input_path, input_id_path, output_path, address,
     try:
         logging.info(f"Running {protocol_name} protocol with command: {' '.join(cmd)}")
         subprocess.run(cmd, text=True, stdout=sys.stdout, stderr=sys.stderr, check=True)
+        if modification_time == get_modification_time(output_path):
+            raise subprocess.CalledProcessError(1, cmd, "Output file not modified. Protocol may have failed or produced no output.")
         post_process(protocol_name, input_path, output_path, is_server=is_server)
     except subprocess.CalledProcessError as e:
         logging.error(f"Protocol failed with exit code {e.returncode}")
