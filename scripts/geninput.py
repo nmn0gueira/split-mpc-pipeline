@@ -173,7 +173,7 @@ def print_xtabs(categories_a, categories_b, values):
     print(f"Expected values (std1): {sorted(std1.items())}\n")
 
 
-def gen_linreg_input(size_a, size_b, n_features_a, n_features_b, scale_features=True, normalize_labels=True):
+def gen_linreg_input(size_a, size_b, n_features_a, n_features_b, return_ints=False, scale_features=True, normalize_labels=True):
     def scale_data(data):
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0)
@@ -182,8 +182,8 @@ def gen_linreg_input(size_a, size_b, n_features_a, n_features_b, scale_features=
         max_value = np.max(data, axis=0)
         return data / max_value
     
-    X_a, y_a = make_regression(n_samples=size_a, n_features=n_features_a)
-    X_b, y_b = make_regression(n_samples=size_b, n_features=n_features_b)
+    X_a, y_a = make_regression(n_samples=size_a, n_features=n_features_a, random_state=42)
+    X_b, y_b = make_regression(n_samples=size_b, n_features=n_features_b, random_state=42)
     y_a = y_a.reshape(-1, 1)  # Ensure y is a 2D array with shape (size, n_labels)
     y_b = y_b.reshape(-1, 1) 
 
@@ -195,18 +195,22 @@ def gen_linreg_input(size_a, size_b, n_features_a, n_features_b, scale_features=
         y_a = normalize_data(y_a)
         y_b = normalize_data(y_b)
 
+    if return_ints:
+        return (np.abs(X_a).astype(np.uint64), np.abs(y_a).astype(np.uint64)), (np.abs(X_b).astype(np.uint64), np.abs(y_b).astype(np.uint64))
+
     return (X_a, y_a), (X_b, y_b)
 
 
-def print_linreg(X, Y):
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
-    print("Training data (X):\n", X_train)
-    print("Training labels (Y):\n", Y_train)
+def print_linreg(X, Y, split=True):
     model = LinearRegression()
-    model.fit(X_train, Y_train)
+    if split:
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+        model.fit(X_train, Y_train)
+        print("Expected test error of model (MSE):", mean_squared_error(Y_test, model.predict(X_test)))
+    else:
+        model.fit(X, Y)
     print("Expected weights (w):\n", model.coef_)
     print("Expected intercept:\n", model.intercept_)
-    print("Expected test error of model (MSE):", mean_squared_error(Y_test, model.predict(X_test)))
 
 
 def gen_hist2d_input(size_a, size_b, n_bins_x, n_bins_y):
@@ -270,55 +274,63 @@ if __name__ == "__main__":
         description='generates input for mp-spdz sample programs')
     
     parser.add_argument('-e', default="xtabs", choices = ["xtabs", "linreg", "hist2d"],
-        help="program selection")
+        help="Program selection")
     parser.add_argument('-a', default=10, type=int, 
-        help="alice's input size (default: 10)")
-    parser.add_argument('-b', default=10, type=int,
-        help="bob's input size (default: 10)")
-    parser.add_argument('-i', default=0, type=float,
-        help="intersection size (default: 0)")
-    parser.add_argument('-ca', default=4, type=int,
-        help="number of categories for alice used in xtabs program (default: 4)")
-    parser.add_argument('-cb', default=4, type=int,
-        help="number of categories for bob used in xtabs program (default: 4)")
-    parser.add_argument('-xa', default=5, type=int,
-        help="number of features of alice used in linreg program (default: 5)")
-    parser.add_argument('-xb', default=5, type=int,
-        help="number of features of bob used in linreg program (default: 5)")
-    parser.add_argument('-ba', default=5, type=int,
-        help="number of bins for alice used in hist2d program (default: 1)")
-    parser.add_argument('-bb', default=5, type=int,
-        help="number of bins for bob used in hist2d program (default: 1)")
+        help="Alice's input size (default: 10)")
+    parser.add_argument('-b', type=int,
+        help="Bob's input size (default: Alice' input size)")
+    parser.add_argument('-i', type=int,
+        help="Intersection size (default: half of the smallest set size)")
+
+    xtabs_group = parser.add_argument_group('XTABS Program Arguments')
+    xtabs_group.add_argument('-ca', default=4, type=int, help="Number of categories for Alice (default: 4)")
+    xtabs_group.add_argument('-cb', default=4, type=int, help="Number of categories for Bob (default: 4)")
+
+    linreg_group = parser.add_argument_group('LINREG Program Arguments')
+    linreg_group.add_argument('-xa', default=5, type=int, help="Number of features for Alice (default: 5)")
+    linreg_group.add_argument('-xb', default=5, type=int, help="Number of features for Bob (default: 5)")
+    linreg_group.add_argument('--return-ints', action='store_true', help="Return data as integers instead of floats")
+
+    hist2d_group = parser.add_argument_group('HIST2D Program Arguments')
+    hist2d_group.add_argument('-ba', default=5, type=int, help="Number of bins for Alice (default: 5)")
+    hist2d_group.add_argument('-bb', default=5, type=int, help="Number of bins for Bob (default: 5)")
     
     args = parser.parse_args()
 
     create_dirs(args.e)
 
-    ids_a, ids_b = get_ids(args.a, args.b, args.i)
+    size_alice = args.a
+    size_bob = args.b if args.b else args.a
+    size_intersection = args.i if args.i else min(size_alice, size_bob) // 2
+
+    ids_a, ids_b = get_ids(size_alice, size_bob, size_intersection)
     alice_data = pd.DataFrame(ids_a)
     bob_data = pd.DataFrame(ids_b)
     public_data = pd.DataFrame()
 
     if args.e == "xtabs":
-        a, b = gen_xtabs_input(args.a, args.b, args.ca, args.cb)
+        a, b = gen_xtabs_input(size_alice, size_bob, args.ca, args.cb)
         alice_data = pd.concat([alice_data, pd.DataFrame(zip(*a))], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(zip(*b))], axis=1, ignore_index=True)
         intersection_df = alice_data.merge(bob_data, on=0, how='inner')
         print_xtabs(intersection_df.iloc[:,1].values, intersection_df.iloc[:,3].values, intersection_df.iloc[:, 4].values)
     
     elif args.e == "linreg":
-        a, b = gen_linreg_input(args.a, args.b, args.xa, args.xb)
+        a, b = gen_linreg_input(size_alice, size_bob, args.xa, args.xb, return_ints=args.return_ints)
         alice_data = pd.concat([alice_data, pd.DataFrame(np.hstack(a))], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(np.hstack(b))], axis=1, ignore_index=True)
         intersection_df = alice_data.merge(bob_data, on=0, how='inner')
         features_a = intersection_df.iloc[:, 1: args.xa + 1].values
         features_b = intersection_df.iloc[:, args.xa + 2: args.xa + args.xb + 2].values
         X = np.hstack((features_a, features_b))
-        y = intersection_df.iloc[:, -1].values   # Use bob's labels
+        y = intersection_df.iloc[:, -1].values   # Use bob's labels (this will result in alice's features being less correlated with the labels though)
+        print("Training linear regression model with split data into train and test sets.")
         print_linreg(X, y)
+        print("Training linear regression model without splitting data into train and test sets.")
+        print_linreg(X, y, split=False)
 
     elif args.e == "hist2d":
-        a, b, public_data = gen_hist2d_input(args.a, args.b, args.ba, args.bb)
+        a, b, public_data = gen_hist2d_input(size_alice, size_bob, args.ba, args.bb)
         alice_data = pd.concat([alice_data, pd.DataFrame(a)], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(b)], axis=1, ignore_index=True)
         public_data = pd.DataFrame(zip(*public_data))
