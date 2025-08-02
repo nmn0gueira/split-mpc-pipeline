@@ -89,14 +89,12 @@ class CircuitPsiInput:
         self.share = share
     def get(self, rows, secret_type):
         flag = Array(rows, sintbit)
-        alice = Array(rows, sint)
+        alice = Array(rows, secret_type)
         bob = Array(rows, secret_type)
         flag.input_from(0)
         flag[:] ^= sintbit.get_input_from(1, size=rows)
         if self.share == 'add32':
-            alice.input_from(0)
-            alice += sint.get_input_from(1, size=rows)
-            alice[:] %= 2**32
+            alice[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**32
         else:  # xor
             @for_range_opt(rows)
             def _(i):
@@ -109,21 +107,17 @@ class CircuitPsiInput:
 
 class CrossPsiInput:
     def get(self, rows, secret_type):
-        alice = Array(rows, sint)
-        bob = Array(rows, sint)
+        alice = Array(rows, secret_type)
+        bob = Array(rows, secret_type)
         mod = 2**64
-        alice.input_from(0)
-        alice += sint.get_input_from(1, size=rows)
-        alice[:] %= mod
-        bob.input_from(0)
-        bob += sint.get_input_from(1, size=rows)
-        bob[:] %= mod
+        alice[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod
+        bob[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod
         return None, alice, bob
 
 class CrossPsiXorInput:
     def get(self, rows, secret_type):
-        alice = Array(rows, sint)
-        bob = Array(rows, sint)
+        alice = Array(rows, secret_type)
+        bob = Array(rows, secret_type)
         @for_range_opt(rows)
         def _(i):
             alice[i] = sint.bit_compose(x.bit_xor(y)

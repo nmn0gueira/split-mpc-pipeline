@@ -98,9 +98,7 @@ class CircuitPsiInput:
         if party == 0:
             y = Array(rows, sfix)
             if self.share == 'add32':
-                y.input_from(0)
-                y += sint.get_input_from(1, size=rows)
-                y[:] %= 2**32
+                y[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**32
             else:
                 @for_range_opt(rows)
                 def _(i):
@@ -128,9 +126,7 @@ class CrossPsiInput:
 
     def load_label_vector(self, party, rows):
         y = Array(rows, sfix)
-        y.input_from(0)
-        y += sint.get_input_from(1, size=rows)
-        y[:] %= 2**64
+        y[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**64
         return y
 
 class CrossPsiXorInput:

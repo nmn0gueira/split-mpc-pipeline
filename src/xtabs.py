@@ -125,11 +125,9 @@ class CircuitPsiInput:
     
     def get_array(self, rows, party, secret_type):
         if party == 0:
-            array = Array(rows, sint)
+            array = Array(rows, secret_type)
             if self.share == 'add32':
-                array.input_from(0)
-                array += sint.get_input_from(1, size=rows)
-                array[:] %= 2**32
+                array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**32
             else:
                 @for_range_opt(rows)
                 def _(i):
@@ -165,10 +163,8 @@ class CrossPsiInput:
         return None
     
     def get_array(self, rows, party, secret_type):
-        array = Array(rows, sint)
-        array.input_from(0)
-        array += sint.get_input_from(1, size=rows)
-        array[:] %= 2**64
+        array = Array(rows, secret_type)
+        array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**64
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols):
@@ -184,7 +180,7 @@ class CrossPsiXorInput:
         return None
     
     def get_array(self, rows, party, secret_type):
-        array = Array(rows, sint)
+        array = Array(rows, secret_type)
         @for_range_opt(rows)
         def _(i):
             array[i] = sint.bit_compose(x.bit_xor(y)
