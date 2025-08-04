@@ -151,7 +151,10 @@ def get_modification_time(file_path):
 
 def run_protocol(protocol_name, input_path, input_id_path, output_path, address, protocol_args):
     is_server = address.split(':')[0] == '0.0.0.0'
-    modification_time = get_modification_time(output_path)
+    check_path = output_path  # The way check_path is used is very scuffed but it works for now
+    if protocol_name == 'ps3i-xor':
+        check_path += '_company_feature.csv'
+    modification_time = get_modification_time(check_path)
 
     effective_input_path = get_effective_input_path(protocol_name, input_path, input_id_path, is_server=is_server)
 
@@ -172,7 +175,7 @@ def run_protocol(protocol_name, input_path, input_id_path, output_path, address,
     try:
         logging.info(f"Running {protocol_name} protocol with command: {' '.join(cmd)}")
         subprocess.run(cmd, text=True, stdout=sys.stdout, stderr=sys.stderr, check=True)
-        if modification_time == get_modification_time(output_path):
+        if modification_time == get_modification_time(check_path):
             raise subprocess.CalledProcessError(1, cmd, "Output file not modified. Protocol may have failed or produced no output.")
         post_process(protocol_name, input_path, output_path, is_server=is_server)
     except subprocess.CalledProcessError as e:
