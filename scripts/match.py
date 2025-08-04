@@ -77,8 +77,9 @@ def post_process_cpsi(input_path, output_path, is_server):
 
     # MP-SPDZ cannot handle hex strings directly so we convert them to integers
     for col in output_df.columns[1:]:
-        output_df[col] = output_df[col].map(lambda x: int(x, 16))  # Full share
+        #output_df[col] = output_df[col].map(lambda x: int(x, 16))  # Full share
         #output_df[col] = output_df[col].map(lambda x: int(x[16:], 16)) # Second half of the share only
+        output_df[col] = output_df[col].map(lambda x: int(x[24:], 16)) # Last fourth of the share only
 
     if is_server:
         output_dir = os.path.dirname(output_path)
