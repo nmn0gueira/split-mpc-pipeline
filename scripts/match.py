@@ -5,6 +5,7 @@ import os
 import tempfile
 import logging
 import pandas as pd
+import numpy as np
 
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -87,17 +88,19 @@ def post_process_cpsi(input_path, output_path, is_server):
         TEMP_FILES.append(mapping_path)
 
         with open(mapping_path, 'r') as f:
-            mapping = f.read().strip().split('\n')
+            mapping = np.array(f.read().strip().split('\n'), dtype=int)
 
         input_df = pd.read_csv(input_path, header=None)
-        server_columns = pd.DataFrame(0, index=output_df.index, columns=input_df.columns[1:], dtype=object)
-        server_df_start = len(output_df.columns)
-
-        output_df = pd.concat([output_df, server_columns], axis=1, ignore_index=True)
+        server_columns = pd.DataFrame(
+            0, 
+            index=output_df.index, 
+            columns=input_df.columns[1:], 
+            dtype=object)
         
-        for i, mapped_row in enumerate(mapping):
-            output_df.iloc[int(mapped_row), server_df_start:] = input_df.iloc[i, 1:]
-    
+        server_df_start = len(output_df.columns)
+        output_df = pd.concat([output_df, server_columns], axis=1, ignore_index=True)
+
+        output_df.iloc[mapping, server_df_start:] = input_df.iloc[:, 1:].values
 
     output_df.to_csv(output_path, index=False, header=False)
 
@@ -117,13 +120,17 @@ def post_process_pid(input_path, output_path):
     input_df = pd.read_csv(input_path, header=None)
     output_df = pd.read_csv(output_path, header=None)
 
-    true_output_df = pd.DataFrame(0, index=output_df.index, columns=input_df.columns, dtype=object)
-    mapping = dict(zip(output_df[0], output_df.index))
+    mapping_series = pd.Series(output_df.index, index=output_df[0])
+    mapped_indices = mapping_series.loc[output_df.iloc[:len(input_df), 1]].to_numpy()
 
-    for i in range(len(input_df)):
-        mapped_index = mapping[output_df.iloc[i, 1]]
-        true_output_df.iloc[mapped_index, 0] = 1
-        true_output_df.iloc[mapped_index, 1:] = input_df.iloc[i, 1:]
+    true_output_df = pd.DataFrame(
+        0, 
+        index=output_df.index, 
+        columns=input_df.columns, 
+        dtype=object)
+
+    true_output_df.iloc[mapped_indices, 0] = 1
+    true_output_df.iloc[mapped_indices, 1:] = input_df.iloc[:, 1:].to_numpy()
 
     true_output_df.to_csv(output_path, index=False, header=False)
 
