@@ -2,7 +2,7 @@
 
 ## Submodules
 These provide the implementations for the protocols used for matching datasets.
-- `Kunlun/` - An OpenSSL wrapper containing implementations of private set operation protocols. Most notably for this project, the state-of-the-art Private-ID protocol is used.
+- `Kunlun` - An OpenSSL wrapper containing implementations of private set operation protocols. Most notably for this project, the state-of-the-art Private-ID protocol is used.
 - `Private-ID` - A collection of algorithms to match records between two or more parties. This project makes use of their PS3I and PS3I-XOR protocol implementations.
 - `volepsi` - A repository including the state-of-the-art PSI and Circuit-PSI protocol implementations.
 
@@ -94,4 +94,5 @@ python3 scripts/match.py --input path/to/bob.csv --output path/to/output.csv --a
 
 
 ### Misc
+
 Protocols that output secret shares do not support secret sharing float values.
