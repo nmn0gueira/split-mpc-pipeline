@@ -3,7 +3,7 @@
 ## Submodules
 These provide the implementations for the protocols used for matching datasets.
 - `Kunlun/` - An OpenSSL wrapper containing implementations of private set operation protocols. Most notably for this project, the state-of-the-art Private-ID protocol is used.
-- `Private-ID` - A collection of algorithms to match records between two or more parties. This project makes use of their P$S^3$I and P$S^3$I-XOR protocol implementations.
+- `Private-ID` - A collection of algorithms to match records between two or more parties. This project makes use of their PS3I and PS3I-XOR protocol implementations.
 - `volepsi` - A repository including the state-of-the-art PSI and Circuit-PSI protocol implementations.
 
 Each submodule includes implementation details and references to the relevant academic papers. You can read the associated papers for further understanding of the mathematical and cryptographic underpinnings.
@@ -60,9 +60,9 @@ python3 scripts/match.py --input path/to/input.csv --output path/to/output.csv -
 
 The log arguments refer to the expected log 2 size of the set of the given party. To work around this restriction you can specify the closest next log 2 size value to the size of the respective set to pad the set with random identifiers.
 
-### P$S^3$I(-XOR)
+### PS3I(-XOR)
 #### Output format
-- P$S^3$I-XOR
+- PS3I-XOR
 ```
 sshare1, ..., ..., cshare1
 sshare2, ..., ..., cshare2
@@ -70,9 +70,9 @@ sshare3, ..., ..., cshare3
 sshare4, ..., ..., cshare4
 ..., ..., ..., ...
 ```
-The output of P$S^3$I-XOR is such that the CSV containing the secret shares will contain the secret shares for all of the server's features and then the secret shares for all of the client's features.
+The output of PS3I-XOR is such that the CSV containing the secret shares will contain the secret shares for all of the server's features and then the secret shares for all of the client's features.
 
-- P$S^3$I
+- PS3I
 ```
 cshare1, sshare1
 cshare2, sshare2
@@ -80,7 +80,7 @@ cshare3, sshare3
 cshare4, sshare4
 ..., ...
 ```
-The output of P$S^3$I has the column with the shares of the client first and then the column with the shares of the server. Additionally the implementation of P$S^3$I' only allows one feature per party.
+The output of PS3I has the column with the shares of the client first and then the column with the shares of the server. Additionally the implementation of PS3I only allows one feature per party.
 
 #### Example command
 Alice (party 0):
