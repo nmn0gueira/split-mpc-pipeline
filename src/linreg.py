@@ -229,9 +229,8 @@ def main():
     flag = provider.get_flag(compiler.options.rows)
     X = provider.load_feature_matrix(alice_columns, bob_columns, compiler.options.rows)
     y = provider.load_label_vector(get_party_from_char(compiler.options.label_owner), compiler.options.rows)
-    
     linear = ml.SGDLinear(compiler.options.n_epochs, compiler.options.batch_size)
-    linear.fit(X.get_part(0, rows_train), y.get_part(0, rows_train))
+    linear.fit(X.get_part(0, rows_train), y.get_part(0, rows_train), sample_mask=flag.get_part(0, rows_train) if flag else None)
     print_ln('Model Weights: %s', linear.opt.layers[0].W[:].reveal())
     print_ln('Model Bias: %s', linear.opt.layers[0].b.reveal())
 
@@ -239,11 +238,7 @@ def main():
         if rows_test <= 0:
             raise ValueError("Cannot calculate mse without test dataset. Compile with an appropriate test size.")
         y_pred = linear.predict(X.get_part(rows_train, rows_test))
-        if flag:
-            flag_test = flag.get_part(rows_train, rows_test)
-        else:
-            flag_test = None
-        mse = mean_squared_error(y.get_part(rows_train, rows_test), y_pred, flag_test)
+        mse = mean_squared_error(y.get_part(rows_train, rows_test), y_pred, flag.get_part(rows_train, rows_test) if flag else None)
         print_ln('Mean Squared Error on Test Set: %s', mse.reveal())
     
 
