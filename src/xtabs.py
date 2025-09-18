@@ -235,13 +235,11 @@ def xtabs_avg1(flag, group_by, values, stype_val, cat_len):
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
     categories = range(cat_len)
-    values = values * flag if flag else values
-    eq_cat = [group_by == i for i in categories]
+    eq_cat = [(group_by == i) * flag for i in categories] if flag else [(group_by == i) for i in categories]
     
     for i in categories:
-        eq_cat = group_by == i
-        sums[i] = (eq_cat * values).sum()
-        counts[i] = eq_cat.sum()    # TODO: Does not account for flag here, but should be ok as values is zeroed out above if flag is used
+        sums[i] = (eq_cat[i] * values).sum()
+        counts[i] = eq_cat[i].sum()
 
 
     for cat in categories:
@@ -253,15 +251,14 @@ def xtabs_avg2(flag, group_by, values, stype_val, cat_len_1, cat_len_2):
     counts = Matrix(cat_len_1, cat_len_2, sint)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
-    values = values * flag if flag else values
+    eq_cat_2 = [(group_by.get_column(1) == j) * flag for j in categories_2] if flag else [(group_by.get_column(1) == j) for j in categories_2]
 
-    eq_cat_2 = [group_by.get_column(1) == j for j in categories_2]
     for i in categories_1:
         eq_cat_1 = group_by.get_column(0) == i
         for j in categories_2:
-            full_match = eq_cat_1 & eq_cat_2[j]
+            full_match = eq_cat_1 * eq_cat_2[j]
             sums[i][j] = (full_match * values).sum()
-            counts[i][j] = full_match.sum()   # TODO: Does not account for flag here, but should be ok as values is zeroed out above if flag is used
+            counts[i][j] = full_match.sum()
     
     for cat_1 in categories_1:
         for cat_2 in categories_2:
@@ -273,15 +270,14 @@ def xtabs_std1(flag, group_by, values, stype_val, cat_len, ddof=0):
     counts = Array(cat_len, sint)
     averages = Array(cat_len, sfix)
     variances = Array(cat_len, sfix)
-    values = values * flag if flag else values
     categories = range(cat_len)
+    eq_cat = [(group_by == i) * flag for i in categories] if flag else [(group_by == i) for i in categories]
 
     for i in categories:
-        eq_cat = group_by == i
-        sums[i] = (eq_cat * values).sum()
-        counts[i] = eq_cat.sum()    # TODO: Does not account for flag here, but should be ok as values is zeroed out above if flag is used
+        sums[i] = (eq_cat[i] * values).sum()
+        counts[i] = eq_cat[i].sum()
         averages[i] = sums[i] / counts[i]
-        variances[i] = (eq_cat * (values - averages[i])**2).sum() # TODO: Does not account for flag here
+        variances[i] = (eq_cat[i] * (values - averages[i])**2).sum()
     
     for cat in categories:
         print_ln("Std %s: %s", cat, sqrt(variances[cat] / (counts[cat] - ddof)).reveal())
@@ -294,18 +290,17 @@ def xtabs_std2(flag, group_by, values, stype_val, cat_len_1, cat_len_2, ddof=0):
     variances = Matrix(cat_len_1, cat_len_2, sfix)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)  
-    values = values * flag if flag else values
 
-    eq_cat_2 = [group_by.get_column(1) == j for j in categories_2]
+    eq_cat_2 = [(group_by.get_column(1) == j) * flag for j in categories_2] if flag else [(group_by.get_column(1) == j) for j in categories_2]
 
     for i in categories_1:
         eq_cat_1 = group_by.get_column(0) == i
         for j in categories_2:
-            full_match = eq_cat_1 & eq_cat_2[j]
+            full_match = eq_cat_1 * eq_cat_2[j]
             sums[i][j] = (full_match * values).sum()
-            counts[i][j] = full_match.sum()   # TODO: Does not account for flag here, but should be ok as values is zeroed out above if flag is used
+            counts[i][j] = full_match.sum()
             averages[i][j] = sums[i][j] / counts[i][j]
-            variances[i][j] = (full_match * (values - averages[i][j])**2).sum() # TODO: Does not account for flag here
+            variances[i][j] = (full_match * (values - averages[i][j])**2).sum()
 
 
     for cat_1 in categories_1:
@@ -317,12 +312,11 @@ def xtabs_freq(flag, group_by, cat_len_1, cat_len_2):
     counts = Matrix(cat_len_1, cat_len_2, sint)    
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
-    group_by = group_by * flag - 1 if flag else group_by
-    eq_cat_2 = [group_by.get_column(1) == j for j in categories_2]
+    eq_cat_2 = [(group_by.get_column(1) == j) * flag for j in categories_2] if flag else [(group_by.get_column(1) == j) for j in categories_2]
     for i in categories_1:
         eq_cat_1 = group_by.get_column(0) == i
         for j in categories_2:
-            counts[i][j] = (eq_cat_1 & eq_cat_2[j]).sum()
+            counts[i][j] = (eq_cat_1 * eq_cat_2[j]).sum()
     
     for cat_1 in categories_1:
         for cat_2 in categories_2:
@@ -334,13 +328,12 @@ def xtabs_mode(flag, group_by, cat_len_1, cat_len_2):
     modes = Array(cat_len_1, sint)
     categories_1 = range(cat_len_1)
     categories_2 = range(cat_len_2)
-    group_by = group_by * flag - 1 if flag else group_by
-    eq_cat_2 = [group_by.get_column(1) == j for j in categories_2]
+    eq_cat_2 = [(group_by.get_column(1) == j) * flag for j in categories_2] if flag else [(group_by.get_column(1) == j) for j in categories_2]
 
     for i in categories_1:
         eq_cat_1 = group_by.get_column(0) == i
         for j in categories_2:
-            counts[i][j] = (eq_cat_1 & eq_cat_2[j]).sum()
+            counts[i][j] = (eq_cat_1 * eq_cat_2[j]).sum()
     
     for cat_1 in categories_1:
         max_value = sint(0)
