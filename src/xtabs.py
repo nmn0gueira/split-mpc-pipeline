@@ -6,8 +6,6 @@ from Compiler.types import sint, sfix, Array, Matrix, sintbit
 usage = "usage: %prog [options] [args]"
 compiler = Compiler(usage=usage)
 
-compiler.parser.add_option("--n_threads", dest="n_threads", type=int, default=1, help="Number of threads to use for parallel execution")
-
 compiler.parser.add_option("--protocol", dest="protocol", type=str, help="one of psi, cpsi, ps3i, ps3i-xor, pid")
 compiler.parser.add_option("--share-type", dest="share_type", type=str, default="xor", help="for cpsi: xor or add32")
 
@@ -24,31 +22,7 @@ compiler.parse_args()
 if not compiler.options.rows or not compiler.options.protocol:
     compiler.parser.error("--rows and --protocol required")
 
-n_threads = compiler.options.n_threads
 function_name = f"xtabs-{compiler.options.aggregation}-{len(compiler.options.group_by)}"    # e.g. xtabs-sum-2
-
-
-def threaded(n_threads, n_loops):
-    """
-    Decorator to parallelize a function across multiple threads. Works with non-uniform thread distribution.
-    """
-    def decorator(func):
-        base = n_loops // n_threads
-        remainder = n_loops % n_threads
-
-        def thread_fn(i_thread):
-            start = i_thread * base + min(i_thread, remainder)
-            end = start + base + (1 if i_thread < remainder else 0)
-            @for_range_opt(start, end)
-            def _(i):
-                func(i, i_thread)
-
-        tapes = [compiler.prog.new_tape(thread_fn, args=[i], single_thread=True)
-                 for i in range(n_threads)]
-        threads = compiler.prog.run_tapes(tapes)
-        compiler.prog.join_tapes(threads)
-
-    return decorator
 
 
 def mux(cond, true_val, false_val):
@@ -384,7 +358,6 @@ def print_compiler_options():
     print("Compiler options:")
     print("Protocol:", compiler.options.protocol)
     print("Share type (if applicable):", compiler.options.share_type)
-    print("Number of threads:", n_threads)
     print("Rows:", compiler.options.rows)
     print("Number of categories for first column:", compiler.options.n_cat_1)
     print("Number of categories for second column (if applicable):", compiler.options.n_cat_2)
