@@ -62,7 +62,7 @@ def gen_xtabs_input(size_a, size_b, n_categories_a, n_categories_b):
     categorical) value to group by (e.g. education level) and the other has the (typically continuous) values to aggregate upon (e.g. salary). The 
     output will depend on the function that is used to aggregate the values.
     '''
-    categories_a, categories_b = [random.randrange(n_categories_a) for _ in range(size_a)], [random.randrange(n_categories_b) for _ in range(size_b)]
+    categories_a, categories_b = [random.randrange(1, n_categories_a + 1) for _ in range(size_a)], [random.randrange(1, n_categories_b + 1) for _ in range(size_b)]
     values_a, values_b = gen_input(BITSIZE, size_a), gen_input(BITSIZE, size_b)
 
     return (categories_a, values_a), (categories_b, values_b)

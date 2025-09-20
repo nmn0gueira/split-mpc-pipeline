@@ -208,35 +208,29 @@ def xtabs_sum2(flag, group_by, values, stype_val, cat_len_1, cat_len_2):
 def xtabs_avg1(flag, group_by, values, stype_val, cat_len):
     sums = Array(cat_len, stype_val)
     counts = Array(cat_len, sint)
-    categories = range(cat_len)
-    eq_cat = [(group_by == i) * flag for i in categories] if flag else [(group_by == i) for i in categories]
+    group_by = group_by * flag if flag else group_by
+    eq_cat = [(group_by == i) for i in range(1, cat_len + 1)]
     
-    for i in categories:
+    for i in range(sums.shape[0]):
         sums[i] = (eq_cat[i] * values).sum()
         counts[i] = eq_cat[i].sum()
-
-
-    for cat in categories:
-        print_ln("Avg %s: %s", cat, (sums[cat] / counts[cat]).reveal())
+        print_ln("Avg %s: %s", i + 1, (sums[i] / counts[i]).reveal())
 
 
 def xtabs_avg2(flag, group_by, values, stype_val, cat_len_1, cat_len_2):
     sums = Matrix(cat_len_1, cat_len_2, stype_val)
     counts = Matrix(cat_len_1, cat_len_2, sint)
-    categories_1 = range(cat_len_1)
-    categories_2 = range(cat_len_2)
-    eq_cat_2 = [(group_by.get_column(1) == j) * flag for j in categories_2] if flag else [(group_by.get_column(1) == j) for j in categories_2]
+    if flag:
+        group_by.set_column(0, group_by.get_column(0) * flag)
+    eq_cat_2 = [(group_by.get_column(1) == j) for j in range(1, cat_len_2 + 1)]
 
-    for i in categories_1:
-        eq_cat_1 = group_by.get_column(0) == i
-        for j in categories_2:
+    for i in range(sums.shape[0]):
+        eq_cat_1 = group_by.get_column(0) == i + 1
+        for j in range(sums.shape[1]):
             full_match = eq_cat_1 * eq_cat_2[j]
             sums[i][j] = (full_match * values).sum()
             counts[i][j] = full_match.sum()
-    
-    for cat_1 in categories_1:
-        for cat_2 in categories_2:
-            print_ln("Avg (%s, %s): %s", cat_1, cat_2, (sums[cat_1][cat_2] / counts[cat_1][cat_2]).reveal())
+            print_ln("Avg (%s, %s): %s", i + 1, j + 1, (sums[i][j] / counts[i][j]).reveal())
 
 
 def xtabs_std1(flag, group_by, values, stype_val, cat_len, ddof=0):
