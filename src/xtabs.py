@@ -1,20 +1,21 @@
-from Compiler.library import print_ln, for_range_opt
+from Compiler.library import print_ln
 from Compiler.compilerLib import Compiler
 from Compiler.mpc_math import sqrt
-from Compiler.types import sint, sfix, Array, Matrix, sintbit
+from Compiler.types import sint, sfix, Array, Matrix
+from common.input import InputFactory
+
 
 usage = "usage: %prog [options] [args]"
 compiler = Compiler(usage=usage)
-
-compiler.parser.add_option("--protocol", dest="protocol", type=str, help="one of psi, cpsi, ps3i, ps3i-xor, pid")
-compiler.parser.add_option("--share-type", dest="share_type", type=str, default="xor", help="for cpsi: xor or add32")
+input_factory = InputFactory(compiler)  # Adds necessary compiler options for input and provides method to create input module based on parsed options
 
 compiler.parser.add_option("--rows", dest="rows", type=int, help="Number of rows for the input matrices")
+
+# Program-specific compiler options
 compiler.parser.add_option("--n_cat_1", dest="n_cat_1", default=4, type=int, help="Number of categories for the first aggregation column")
 compiler.parser.add_option("--n_cat_2", dest="n_cat_2", default=4, type=int, help="Number of categories for the second aggregation column (if applicable)")
-
-compiler.parser.add_option("--aggregation", dest="aggregation", type=str, help="Type of aggregation to be performed (sum, avg, freq, mode, std")
-compiler.parser.add_option("--group_by", dest="group_by", type=str, help="Columns to group by (2 max) (e.g ab for Alice's first column and Bob's first column")
+compiler.parser.add_option("--aggregation", dest="aggregation", type=str, help="Type of aggregation to be performed (sum, avg, freq, mode, std)")
+compiler.parser.add_option("--group_by", dest="group_by", type=str, help="Columns to group by (2 max) (e.g ab for Alice's first column and Bob's first column)")
 compiler.parser.add_option("--values", dest="values", type=str, help="Value column (not needed for mode and freq.) (e.g b for Bob's column)")
 
 compiler.parse_args()
@@ -47,133 +48,6 @@ def get_party_from_char(ch):
         return 1
     else:
         raise ValueError(f"Unexpected character in group_by: {ch}")
-
-class PsiInput:
-    def get_flag(self, rows):
-        return None
-    
-    def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
-        array.input_from(party)
-        return array
-
-    def get_matrix(self, rows, alice_cols, bob_cols):
-        num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
-        for i in range(alice_cols):
-            matrix.set_column(i, sint.get_input_from(0, size=rows)) 
-        for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
-        return matrix
-
-class PrivateIdInput:
-    def get_flag(self, rows):
-        flag = Array(rows, sintbit)
-        flag.input_from(0)
-        flag[:] &= sintbit.get_input_from(1, size=rows)   
-        return flag
-    
-    def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
-        array.input_from(party)
-        return array
-
-    def get_matrix(self, rows, alice_cols, bob_cols):
-        num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
-        for i in range(alice_cols):
-            matrix.set_column(i, sint.get_input_from(0, size=rows)) 
-        for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
-        return matrix
-
-class CircuitPsiInput:
-    def __init__(self, share):
-        self.share = share
-
-    def get_flag(self, rows):
-        flag = Array(rows, sintbit)
-        flag.input_from(0)
-        flag[:] ^= sintbit.get_input_from(1, size=rows)
-        return flag
-    
-    def get_array(self, rows, party, secret_type):
-        if party == 0:
-            array = Array(rows, secret_type)
-            if self.share == 'add32':
-                array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**32
-            else:
-                @for_range_opt(rows)
-                def _(i):
-                    array[i] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
-        else:  # party == 'b'
-            array = Array(rows, secret_type)
-            array.input_from(1)
-        return array
-
-    def get_matrix(self, rows, alice_cols, bob_cols):
-        num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
-        mod = 2**32
-        for i in range(alice_cols):
-            if self.share == 'add32':
-                matrix.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
-            else:
-                @for_range_opt(rows)
-                def _(j):
-                    matrix[j][i] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
-        for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
-        return matrix
-
-class CrossPsiInput:
-    def get_flag(self, rows):
-        return None
-    
-    def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
-        array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**64
-        return array
-
-    def get_matrix(self, rows, alice_cols, bob_cols):
-        num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
-        mod = 2**64
-        for i in range(num_cols):
-            matrix.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
-        return matrix
-
-class CrossPsiXorInput:
-    def get_flag(self, rows):
-        return None
-    
-    def get_array(self, rows, party, secret_type):
-        array = Array(rows, secret_type)
-        @for_range_opt(rows)
-        def _(i):
-            array[i] = sint.bit_compose(x.bit_xor(y)
-                            for x,y in zip(
-                                sint.get_input_from(0).bit_decompose(),
-                                sint.get_input_from(1).bit_decompose()))
-        return array
-
-    def get_matrix(self, rows, alice_cols, bob_cols):
-        num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
-        for i in range(num_cols):
-            @for_range_opt(rows)
-            def _(j):
-                matrix[j][i] = sint.bit_compose(x.bit_xor(y)
-                            for x,y in zip(
-                                sint.get_input_from(0).bit_decompose(),
-                                sint.get_input_from(1).bit_decompose()))
-        return matrix
 
 
 def xtabs_sum1(flag, group_by, values, stype_val, cat_len):
@@ -364,17 +238,12 @@ def print_compiler_options():
 @compiler.register_function(function_name)
 def main():
     print_compiler_options()
+ 
     compiler.prog.use_trunc_pr = True
     stype_val = sfix if 'fix' in compiler.prog.args else sint
     num_group_by = len(compiler.options.group_by)
-    fact = {
-        'psi': PsiInput,
-        'pid': PrivateIdInput,
-        'cpsi': lambda: CircuitPsiInput(compiler.options.share_type),
-        'ps3i': CrossPsiInput,
-        'ps3i-xor': CrossPsiXorInput,
-    }
-    provider = fact[compiler.options.protocol]() 
+
+    provider = input_factory.create_input()
     if num_group_by == 1:
         flag = provider.get_flag(compiler.options.rows)
         group_by = provider.get_array(compiler.options.rows, get_party_from_char(compiler.options.group_by), sint)
