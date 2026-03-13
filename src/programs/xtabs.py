@@ -1,4 +1,3 @@
-from Compiler.library import print_ln
 from Compiler.compilerLib import Compiler
 from Compiler.mpc_math import sqrt
 from Compiler.types import sint, sfix, Array, Matrix
@@ -28,7 +27,6 @@ if not compiler.options.rows or not compiler.options.protocol:
 
 def xtabs_sum1(flag, group_by, values, cat_len):
     sums = Array(cat_len, values.value_type)
-    sums.check
 
     values = values * flag if flag else values
     for i in range(cat_len):
@@ -217,7 +215,11 @@ def main():
     else:
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
     
-    result.print_reveal_nested()
+    if provider.as_server:
+        result.reveal_to_clients(provider.client_sockets.get_sub(provider.number_clients))
+        del provider
+    else:
+        result.print_reveal_nested()
 
 
 if __name__ == "__main__":

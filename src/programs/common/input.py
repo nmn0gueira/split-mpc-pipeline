@@ -1,6 +1,9 @@
 from abc import abstractmethod
 
-from Compiler.library import accept_client_connection, do_while, for_range_opt, if_, listen_for_clients, print_ln
+from numpy import array
+
+from Compiler.instructions import closeclientconnection
+from Compiler.library import accept_client_connection, do_while, for_range, for_range_opt, if_, listen_for_clients, print_ln
 from Compiler.types import MemValue, regint, sint, sintbit, Matrix, Array
 
 PORTNUM = 14000
@@ -55,7 +58,8 @@ class Input:
     :param as_server: Whether to run the input module as a server (listening for client connections), as opposed to locally sourcing the input.
     """
     def __init__(self, as_server):
-        if as_server:
+        self.as_server = as_server
+        if self.as_server:
             listen_for_clients(PORTNUM)
             print_ln('Listening for client connections on base port %s', PORTNUM)
 
@@ -117,7 +121,15 @@ class Input:
         client_socket_id = accept_client_connection(PORTNUM)
         last = regint.read_from_socket(client_socket_id)
         return client_socket_id, last
-
+    
+    def _close_connections(self):
+        @for_range(self.number_clients)
+        def _(i):
+            closeclientconnection(i)
+        
+    def __del__(self):
+        if self.as_server:
+            self._close_connections()
 
 class PsiInput(Input):
     """ PsiInput. Implements input retrieval. Assumes the previously executed protocol was a private set intersection (PSI) protocol. Since we are already only dealing with intersection items, all rows can be considered for computation.
@@ -132,16 +144,25 @@ class PsiInput(Input):
     
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
-        array.input_from(party)
+        if self.as_server:
+            array.assign_vector(secret_type.receive_from_client(1, self.client_sockets[party], size=rows)[0])
+        else:
+            array.input_from(party)
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols):
         num_cols = alice_cols + bob_cols
         matrix = Matrix(rows, num_cols, sint)
-        for i in range(alice_cols):
-            matrix.set_column(i, sint.get_input_from(0, size=rows)) 
-        for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
+        if self.as_server:
+            for i in range(alice_cols):
+                matrix.set_column(i, sint.receive_from_client(1, self.client_sockets[0], size=rows)[0])
+            for i in range(bob_cols):
+                matrix.set_column(alice_cols + i, sint.receive_from_client(1, self.client_sockets[1], size=rows)[0])    
+        else:
+            for i in range(alice_cols):
+                matrix.set_column(i, sint.get_input_from(0, size=rows)) 
+            for i in range(bob_cols):
+                matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
         return matrix
 
 

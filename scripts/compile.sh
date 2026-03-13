@@ -8,7 +8,7 @@ MP_SPDZ_PATH="MP-SPDZ"
 if [ -z "$src_path" ]; then
     echo "Usage: $0 <src_path> <protocol_options> <program_args>"
     echo "src_path: Path to the Python script in src"
-    echo "Example: $0 cross-psi/hist2d.py -p 2 -r 1000"
+    echo "Example: $0 xtabs.py -R 64 -Z 2 -b 100000 --rows 5000 --protocol psi --aggregation sum --group_by a --values b"
     exit 1
 fi
 
@@ -16,7 +16,9 @@ shift
 
 python_script=$(basename "$src_path")
 
-cp src/${src_path} $MP_SPDZ_PATH/${python_script}
+# Copy program and other required files (if updates were made or if not already copied) to MP-SPDZ
+cp -au src/programs/${src_path} $MP_SPDZ_PATH/${python_script}
+cp -au src/programs/common/. $MP_SPDZ_PATH/common
 
 cd $MP_SPDZ_PATH
 

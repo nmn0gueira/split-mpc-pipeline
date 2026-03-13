@@ -86,7 +86,7 @@ int main(int argc, char** argv)
     nparties = atoi(argv[2]);
     input_file = argv[3];
     column = atoi(argv[4]);
-    finish = 1; // 0 makes it stall indefinitely and not having it results in insufficient data error on the server-side
+    finish = atoi(argv[5]); // If this is the last client connecting
     vector<string> hostnames(nparties, "localhost");
 
     std::vector<std::string> strs = read_csv_column(input_file, column);
