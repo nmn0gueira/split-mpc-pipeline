@@ -1,15 +1,13 @@
 from abc import abstractmethod
 
-from numpy import array
-
 from Compiler.instructions import closeclientconnection
-from Compiler.library import accept_client_connection, do_while, for_range, for_range_opt, if_, listen_for_clients, print_ln
+from Compiler.library import accept_client_connection, do_while, for_range, for_range_opt, if_, listen_for_clients, print_ln, stop_timer, start_timer
 from Compiler.types import MemValue, regint, sint, sintbit, Matrix, Array
 
 PORTNUM = 14000
 MAX_NUM_CLIENTS = 8
 
-# missing input factory, either class or method. too java-like but I think this makes sense.
+
 class InputFactory:
     """ InputFactory.
 
@@ -73,6 +71,7 @@ class Input:
             self.seen = Array(MAX_NUM_CLIENTS, regint)
             self.seen.assign_all(0)
 
+            stop_timer()    # Do not count time waiting for everyone to connect
             # Loop round waiting for each client to connect
             @do_while
             def client_connections():
@@ -89,6 +88,7 @@ class Input:
                     self.number_clients.write(client_id + 1)
 
                 return (sum(self.seen) < self.number_clients) + (self.number_clients == 0)
+            start_timer()
 
 
     @abstractmethod
