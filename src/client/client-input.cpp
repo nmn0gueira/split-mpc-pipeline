@@ -14,8 +14,9 @@
 #include <sstream>
 #include <fstream>
 
+
 template<class T, class U>
-void run(const std::vector<string> &strs, Client& client)
+void run(const std::vector<string> &strs, int output_length, Client& client)
 {
     std::vector<T> values;
     values.reserve(strs.size());
@@ -31,11 +32,11 @@ void run(const std::vector<string> &strs, Client& client)
     client.send_private_inputs<T>(values);
     cout << "Sent private inputs to each SPDZ engine, waiting for result..." << endl;
 
-    std::vector<U> result = client.receive_outputs<T>(4);   // TODO: Output vector should be either adaptable or extra info needs to be specified at the start
+    std::vector<U> result = client.receive_outputs<T>(output_length);
 
     // Get the result back (client_id of winning client)
     for (const auto& r : result)
-        cout << "Output : " << r << endl;
+        cout << "Output: " << r << endl;
 }
 
 std::vector<std::string> read_csv_column(const std::string& filename,
@@ -68,49 +69,91 @@ std::vector<std::string> read_csv_column(const std::string& filename,
 
 int main(int argc, char** argv)
 {
-    int my_client_id;
+    int client_id;
     int nparties;
-    char* input_file;
-    size_t column;
+    std::string input_file;
+    int output_length;
     size_t finish;
-    int port_base = 14000;
+    int port_base;
+    std::vector<std::string> hostnames;
 
-    if (argc < 5) {
-        cout << "Usage is client-input <client identifier> <number of spdz parties> "
-           << "<input file> <column index> <finish (0 false, 1 true)> <optional host names..., default localhost> "
-           << "<optional spdz party port base number, default 14000>" << endl;
-        exit(0);
-    }
+    auto usage = [&]() -> int {
+        std::cerr << "Usage: " << argv[0]
+                  << " --client_id <client_identifier>"
+                  << " --nparties <number_of_parties>"
+                  << " --in <input_file>"
+                  << "--out_len <output_elements_num>"
+                  << " [--finish]"
+                  << " [--port_base <port>]"
+                  << " [--hosts <host_1,host_2,...,host_n>]"
+                  << std::endl;
+        return 1;
+    };
 
-    my_client_id = atoi(argv[1]);
-    nparties = atoi(argv[2]);
-    input_file = argv[3];
-    column = atoi(argv[4]);
-    finish = atoi(argv[5]); // If this is the last client connecting
-    vector<string> hostnames(nparties, "localhost");
 
-    std::vector<std::string> strs = read_csv_column(input_file, column);
+    // Very simple arg parser
+    std::unordered_map<std::string, std::string> args;
+    for (int i = 1; i < argc; ++i) {
+        std::string key = argv[i];
 
-    /*if (argc > 5)
-    {
-        if (argc < 5 + nparties)
-        {
-            cerr << "Not enough hostnames specified";
-            exit(1);
+        if (key.rfind("--", 0) != 0) {
+            std::cerr << "Unexpected positional argument: " << key << '\n';
+            return usage();
         }
 
-        for (int i = 0; i < nparties; i++)
-            hostnames[i] = argv[5 + i];
+        bool has_next = (i + 1 < argc);
+        bool next_is_flag = has_next && std::string(argv[i + 1]).rfind("-", 0) == 0;
+
+        if (!has_next || next_is_flag) {    // store true
+            args[key] = "1";
+        } else {
+            args[key] = argv[i + 1];
+            ++i;
+        }
     }
 
-    if (argc > 5 + nparties)
-        port_base = atoi(argv[5 + nparties]);
-    */
+    try {
+        client_id   = std::stoi(args.at("--client_id"));
+        nparties    = std::stoi(args.at("--nparties"));
+        input_file = args.at("--in");
+        output_length = std::stoi(args.at("--out_len"));
+        finish = args.count("--finish") ? std::stoi(args.at("--finish")) : 0;
+        port_base = args.count("--port_base") ? std::stoi(args.at("--port_base")) : 14000;
+
+        if (args.count("--hosts")) {
+            std::istringstream ss(args.at("--hosts"));
+            std::string host;
+            while (std::getline(ss, host, ',')) {
+                hostnames.push_back(host);
+            }
+        } else {
+            hostnames.assign(nparties, "localhost");
+        }
+
+        std::cout << "client_id: " << client_id << "\n"
+                  << "nparties: " << nparties << "\n"
+                  << "input: " << input_file << "\n"
+                  << "out_len: " << output_length << "\n"
+                  << "finish: " << finish << "\n"
+                  << "port_base: " << port_base << "\n"
+                  << "hosts: ";
+        for (const auto& h : hostnames) std::cout << h << ' ';
+        std::cout << '\n';
+    } catch (const std::out_of_range&) {
+        std::cerr << "Missing required argument.\n";
+        return usage();
+    } catch (const std::invalid_argument&) {
+        std::cerr << "Invalid numeric value.\n";
+        return usage();
+    }
+
+
+    std::vector<std::string> strs = read_csv_column(input_file, finish);
     
     bigint::init_thread();
 
     // Setup connections from this client to each party socket
-    Client client(hostnames, port_base, my_client_id);
+    Client client(hostnames, port_base, client_id);
     auto& specification = client.specification;
     auto& sockets = client.sockets;
     for (int i = 0; i < nparties; i++)
@@ -128,7 +171,7 @@ int main(int argc, char** argv)
     {
         gfp::init_field(specification.get<bigint>());
         cerr << "using prime " << gfp::pr() << endl;
-        run<gfp, gfp>(strs, client);
+        run<gfp, gfp>(strs, output_length, client);
         break;
     }
     case 'R':
@@ -143,11 +186,11 @@ int main(int argc, char** argv)
         switch (R)
         {
         case 64:
-            run<Z2<64>, Z2<64>>(strs, client);
+            run<Z2<64>, Z2<64>>(strs, output_length, client);
             break;
         case 128:
             //run<Z2<128>, Z2<64>>(strs, client);   // This was the original, but it resulted in errors when assigning the output of client.receive_outputs to a vector<U>, apparently due to conversion errors from Z2<128> to Z2<64>
-            run<Z2<128>, Z2<128>>(strs, client);
+            run<Z2<128>, Z2<128>>(strs, output_length, client);
             break;
         default:
             cerr << R << "-bit ring not implemented";
