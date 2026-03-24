@@ -2,8 +2,8 @@
 
 set -ex
 
-client_command_base="python scripts/match.py --input data/xtabs/alice.csv --output alice.csv --address 127.0.0.1:10010"
-server_command_base="python scripts/match.py --input data/xtabs/bob.csv --output bob.csv --address 0.0.0.0:10010"
+client_command_base="python scripts/match.py --input data/xtabs/alice.csv --output /tmp/alice.csv --address 127.0.0.1:10010"
+server_command_base="python scripts/match.py --input data/xtabs/bob.csv --output /tmp/bob.csv --address 0.0.0.0:10010"
 
 gen_input(){
     local input_size=$1
@@ -21,12 +21,12 @@ generate_psi_input(){
 
 generate_psi_input
 
-cd MP-SPDZ
+python3 scripts/iprep.py --input /tmp/alice.csv --party 0 --columns 0 --transpose
+python3 scripts/iprep.py --input /tmp/bob.csv --party 1 --columns 0,1 --transpose
 
-./client-input.x 0 3 ../alice.csv 0 0 & 
-./client-input.x 1 3 ../bob.csv 1 1 > /dev/null &
 
-cd ..
+scripts/compile.sh xtabs.py -R 64 -Z 2 -b 100000 --rows 5000 --protocol psi --aggregation sum --group_by ab --values b --as-server fix
 
-scripts/compile.sh xtabs.py -R 64 -Z 2 -b 100000 --rows 5000 --protocol psi --aggregation sum --group_by a --values b --as-server
-scripts/run.sh ring.sh xtabs-sum-1
+scripts/run.sh client-input.x --client_id 0 --nparties 3 --out_len 16 & 
+scripts/run.sh client-input.x --client_id 1 --nparties 3 --finish --out_len 16 > /dev/null &
+scripts/run.sh ring.sh xtabs-sum-2
