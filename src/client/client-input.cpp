@@ -14,58 +14,104 @@
 #include <sstream>
 #include <fstream>
 
+#include <charconv>
 
-template<class T, class U>
-void run(const std::vector<string> &strs, int output_length, Client& client)
+
+enum class NumType { Int, Float, Invalid };
+
+NumType detect_number(const std::string& string)
 {
+    std::istringstream iss(string);
+    std::string token;
+    if (!(iss >> token))                 // empty line → invalid
+        return NumType::Invalid;
+
+    int intVal;
+    const char* intBegin = token.c_str();
+    const char* intEnd   = intBegin + token.size();
+
+    auto intRes = std::from_chars(intBegin, intEnd, intVal);
+    if (intRes.ec == std::errc() && intRes.ptr == intEnd)
+        return NumType::Int;             // whole token parsed as int
+
+    char* endPtr = nullptr;
+    std::strtod(token.c_str(), &endPtr);
+    if (endPtr != nullptr && *endPtr == '\0')
+        return NumType::Float;           // whole token parsed as float
+
+    return NumType::Invalid;
+}
+
+
+template<class T>
+std::vector<T> wrap_values(const std::vector<string> &strs) {
+    if (strs.empty())
+        throw runtime_error("Empty vector");
+
     std::vector<T> values;
     values.reserve(strs.size());
-    for (const auto& s : strs) {
-        values.emplace_back(long(round(std::stoi(s))));    // sint
+    
+    const std::string& first = strs.front();
+    NumType num_type = detect_number(first);
+
+    if (num_type == NumType::Int) {
+        for (const auto& s : strs) {
+            values.emplace_back(long(round(std::stoi(s))));    // sint
+        }
+        return values;
     }
+    
+    if (num_type == NumType::Float) {
+        for (const auto& s : strs) {
+            values.emplace_back(long(round(std::stoi(s)) *  exp2(16)));    // sfix with f = 16 (this means s must be within signed short range)
+        }
+        return values;
+    }    
 
-    //one_run<T, U>(long(round(salary_value)), client);
-    // sfix with f = 16
-    //one_run<T, U>(long(round(salary_value * exp2(16))), client);
+    throw runtime_error("Vector contains invalid elements");
+}
 
-    // Run the computation
-    client.send_private_inputs<T>(values);
-    cout << "Sent private inputs to each SPDZ engine, waiting for result..." << endl;
+
+template<class T, class U>
+void run(const std::vector<std::vector<string>> &data, int output_length, Client& client)
+{
+    for (const auto& row : data) {
+        client.send_private_inputs<T>(wrap_values<T>(row));
+        cout << "Sent row of private inputs to each SPDZ engine..." << endl;
+    }
+    
+    cout << "Sent all private inputs to each SPDZ engine, waiting for result..." << endl;
 
     std::vector<U> result = client.receive_outputs<T>(output_length);
 
-    // Get the result back (client_id of winning client)
     for (const auto& r : result)
         cout << "Output: " << r << endl;
 }
 
-std::vector<std::string> read_csv_column(const std::string& filename,
-                                       std::size_t col_index)
+
+std::vector<std::vector<std::string>> read_data(const std::string& filename)
 {
-    std::vector<std::string> column;
     std::ifstream file(filename);
     if (!file.is_open()) {
         throw std::runtime_error("Cannot open file: " + filename);
     }
 
+    std::vector<std::vector<std::string>> rows;
     std::string line;
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string cell;
-        std::size_t current = 0;
+        rows.emplace_back();
+        auto& row = rows.back();
 
-        // split the line on commas
-        while (std::getline(ss, cell, ',')) {
-            if (current == col_index) {
-                column.push_back(cell);
-                break;
-            }
-            ++current;
+        while (std::getline(ss, cell, ' ')) {
+            row.emplace_back(std::move(cell));
         }
     }
 
-    return column;
+    return rows;
 }
+
 
 int main(int argc, char** argv)
 {
@@ -78,18 +124,17 @@ int main(int argc, char** argv)
     std::vector<std::string> hostnames;
 
     auto usage = [&]() -> int {
-        std::cerr << "Usage: " << argv[0]
-                  << " --client_id <client_identifier>"
-                  << " --nparties <number_of_parties>"
-                  << " --in <input_file>"
-                  << "--out_len <output_elements_num>"
-                  << " [--finish]"
-                  << " [--port_base <port>]"
-                  << " [--hosts <host_1,host_2,...,host_n>]"
-                  << std::endl;
+        std::cerr << "Usage: " << argv[0] << "\n"
+                << "  --client_id <client_identifier>          Identifier of this client\n"
+                << "  --nparties <number_of_parties>           Number of SPDZ engines (i.e., computing parties) in the computation\n"
+                << "  --in <input_file>                        Path to input file (default is Player-Data/Input-P{client_id}-0)\n"
+                << "  --out_len <output_elements_num>          Expected number of elements in the output of the computation\n"
+                << "  [--finish]                               Whether to tell SPDZ engines to stop listening for connections\n"
+                << "  [--port_base <port>]                     Port base for SPDZ engine's connections (default 14000)\n"
+                << "  [--hosts <host_1,host_2,...,host_n>]     Hostnames for the SPDZ engines (default localhost * nparties)\n"
+                << std::endl;
         return 1;
     };
-
 
     // Very simple arg parser
     std::unordered_map<std::string, std::string> args;
@@ -115,7 +160,7 @@ int main(int argc, char** argv)
     try {
         client_id   = std::stoi(args.at("--client_id"));
         nparties    = std::stoi(args.at("--nparties"));
-        input_file = args.at("--in");
+        input_file = args.count("--in") ? args.at("--in") : "Player-Data/Input-P" + std::to_string(client_id) + "-0";
         output_length = std::stoi(args.at("--out_len"));
         finish = args.count("--finish") ? std::stoi(args.at("--finish")) : 0;
         port_base = args.count("--port_base") ? std::stoi(args.at("--port_base")) : 14000;
@@ -148,7 +193,7 @@ int main(int argc, char** argv)
     }
 
 
-    std::vector<std::string> strs = read_csv_column(input_file, finish);
+    std::vector<std::vector<std::string>> strs = read_data(input_file);
     
     bigint::init_thread();
 
