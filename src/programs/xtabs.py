@@ -215,11 +215,7 @@ def main():
     else:
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
     
-    if provider.as_server:
-        result.reveal_to_clients(provider.client_sockets.get_sub(provider.number_clients))
-        del provider
-    else:
-        result.print_reveal_nested()
+    provider.reveal_output(result)
 
 
 if __name__ == "__main__":

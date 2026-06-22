@@ -1,11 +1,9 @@
 from abc import abstractmethod
 
-from Compiler.instructions import closeclientconnection
-from Compiler.library import accept_client_connection, do_while, for_range, for_range_opt, if_, listen_for_clients, print_ln, stop_timer, start_timer
-from Compiler.types import MemValue, regint, sint, sintbit, Matrix, Array
+from Compiler.library import for_range_opt
+from Compiler.types import sint, sintbit, Matrix, Array
 
-PORTNUM = 14000
-MAX_NUM_CLIENTS = 8
+from common.client import ClientManager
 
 
 class InputFactory:
@@ -20,15 +18,13 @@ class InputFactory:
     """
     def __init__(self, compiler):
         self.compiler = compiler
-        # Assert compiler does not already have these options?
         self.compiler.parser.add_option("--protocol", dest="protocol", type=str, help="one of psi, cpsi, ps3i, ps3i-xor, pid")
         self.compiler.parser.add_option("--share-type", dest="share_type", type=str, help="for cpsi only: xor or add32")
         self.compiler.parser.add_option("--as-server", dest="as_server", action="store_true", help="Whether to run the input module as a server (listening for client connections), as opposed to locally sourcing the input")
 
-
     def create_input(self):
-        """ Factory method to create an Input instance based on the compiler options specified. 
-        
+        """ Factory method to create an Input instance based on the compiler options specified.
+
         Obviously, this will not work if the specified options at init have not been parsed yet, so the caller must ensure that compiler.parse_args() has been called before invoking this method.
         """
         protocol = self.compiler.options.protocol
@@ -57,39 +53,14 @@ class Input:
     """
     def __init__(self, as_server):
         self.as_server = as_server
+        self.client = ClientManager() if as_server else None
+
+    def reveal_output(self, result):
+        """Reveal computation result to connected clients or print to stdout."""
         if self.as_server:
-            listen_for_clients(PORTNUM)
-            print_ln('Listening for client connections on base port %s', PORTNUM)
-
-            # Clients socket id (integer).
-            self.client_sockets = Array(MAX_NUM_CLIENTS, regint)
-            # Number of clients
-            self.number_clients = MemValue(regint(0))
-            # Client ids to identity client
-            self.client_ids = Array(MAX_NUM_CLIENTS, sint)
-            # Keep track of received inputs
-            self.seen = Array(MAX_NUM_CLIENTS, regint)
-            self.seen.assign_all(0)
-
-            stop_timer()    # Do not count time waiting for everyone to connect
-            # Loop round waiting for each client to connect
-            @do_while
-            def client_connections():
-                client_id, last = self._accept_client()
-                #@if_(client_id >= MAX_NUM_CLIENTS)
-                #def _():
-                #    print_ln('client id too high')
-                #    crash()
-                self.client_sockets[client_id] = client_id
-                self.client_ids[client_id] = client_id
-                self.seen[client_id] = 1
-                @if_(last == 1)
-                def _():
-                    self.number_clients.write(client_id + 1)
-
-                return (sum(self.seen) < self.number_clients) + (self.number_clients == 0)
-            start_timer()
-
+            self.client.reveal_output(result)
+        else:
+            result.print_reveal_nested()
 
     @abstractmethod
     def get_flag(self, rows):
@@ -99,14 +70,13 @@ class Input:
     @abstractmethod
     def get_array(self, rows, party, secret_type):
         """ Get an input array.
-        
+
         :param rows: The number of rows in the input array.
         :param party: The party from which to get the input (e.g. 0 for Alice, 1 for Bob).
         :param secret_type: The type of the elements in the array (e.g. sint or sfix).
         """
         pass
 
-    # If necessary, both this method and the above could accept rows as a tuple to allow for partitioning horizontally between parties and extend to a higher number of parties if needed
     @abstractmethod
     def get_matrix(self, rows, alice_cols, bob_cols):
         """ Get an input matrix. Only needed for some protocols, so can return None if not applicable.
@@ -117,19 +87,6 @@ class Input:
         """
         pass
 
-    def _accept_client(self):
-        client_socket_id = accept_client_connection(PORTNUM)
-        last = regint.read_from_socket(client_socket_id)
-        return client_socket_id, last
-    
-    def _close_connections(self):
-        @for_range(self.number_clients)
-        def _(i):
-            closeclientconnection(i)
-        
-    def __del__(self):
-        if self.as_server:
-            self._close_connections()
 
 class PsiInput(Input):
     """ PsiInput. Implements input retrieval. Assumes the previously executed protocol was a private set intersection (PSI) protocol. Since we are already only dealing with intersection items, all rows can be considered for computation.
@@ -141,11 +98,11 @@ class PsiInput(Input):
 
     def get_flag(self, rows):
         return None
-    
+
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
         if self.as_server:
-            array.assign_vector(secret_type.receive_from_client(1, self.client_sockets[party], size=rows)[0])
+            array.assign_vector(secret_type.receive_from_client(1, self.client.sockets[party], size=rows)[0])
         else:
             array.input_from(party)
         return array
@@ -155,9 +112,9 @@ class PsiInput(Input):
         matrix = Matrix(rows, num_cols, secret_type)
         if self.as_server:
             for i in range(alice_cols):
-                matrix.set_column(i, sint.receive_from_client(1, self.client_sockets[0], size=rows)[0])
+                matrix.set_column(i, sint.receive_from_client(1, self.client.sockets[0], size=rows)[0])
             for i in range(bob_cols):
-                matrix.set_column(alice_cols + i, sint.receive_from_client(1, self.client_sockets[1], size=rows)[0])
+                matrix.set_column(alice_cols + i, sint.receive_from_client(1, self.client.sockets[1], size=rows)[0])
         else:
             for i in range(alice_cols):
                 matrix.set_column(i, secret_type.get_input_from(0, size=rows))
@@ -177,9 +134,9 @@ class PrivateIdInput(Input):
     def get_flag(self, rows):
         flag = Array(rows, sintbit)
         flag.input_from(0)
-        flag[:] &= sintbit.get_input_from(1, size=rows)   
+        flag[:] &= sintbit.get_input_from(1, size=rows)
         return flag
-    
+
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
         array.input_from(party)
@@ -212,7 +169,7 @@ class CircuitPsiInput(Input):
         flag.input_from(0)
         flag[:] ^= sintbit.get_input_from(1, size=rows)
         return flag
-    
+
     def get_array(self, rows, party, secret_type):
         if party == 0:
             array = Array(rows, secret_type)
@@ -252,14 +209,14 @@ class CircuitPsiInput(Input):
 class CrossPsiInput(Input):
     """
     CrossPsiInput. Implements input retrieval. Assumes the previously executed protocol was the PS3I protocol (additive shares variant). The input is reconstructed by summing the shares from both parties and only includes valid rows for computation. More details in match/README.md.
-    """    
-    
+    """
+
     def __init__(self, as_server):
         super().__init__(as_server)
 
     def get_flag(self, rows):
         return None
-    
+
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
         array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**64
@@ -277,13 +234,13 @@ class CrossPsiInput(Input):
 class CrossPsiXorInput(Input):
     """
     CrossPsiXorInput. Implements input retrieval. Assumes the previously executed protocol was the PS3I protocol (XOR shares variant). The input is reconstructed by summing the shares from both parties and only includes valid rows for computation. More details in match/README.md.
-    """   
+    """
     def __init__(self, as_server):
         super().__init__(as_server)
 
     def get_flag(self, rows):
         return None
-    
+
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
         @for_range_opt(rows)
