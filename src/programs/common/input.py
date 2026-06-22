@@ -150,19 +150,19 @@ class PsiInput(Input):
             array.input_from(party)
         return array
 
-    def get_matrix(self, rows, alice_cols, bob_cols):
+    def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
+        matrix = Matrix(rows, num_cols, secret_type)
         if self.as_server:
             for i in range(alice_cols):
                 matrix.set_column(i, sint.receive_from_client(1, self.client_sockets[0], size=rows)[0])
             for i in range(bob_cols):
-                matrix.set_column(alice_cols + i, sint.receive_from_client(1, self.client_sockets[1], size=rows)[0])    
+                matrix.set_column(alice_cols + i, sint.receive_from_client(1, self.client_sockets[1], size=rows)[0])
         else:
             for i in range(alice_cols):
-                matrix.set_column(i, sint.get_input_from(0, size=rows)) 
+                matrix.set_column(i, secret_type.get_input_from(0, size=rows))
             for i in range(bob_cols):
-                matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
+                matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))
         return matrix
 
 
@@ -185,13 +185,13 @@ class PrivateIdInput(Input):
         array.input_from(party)
         return array
 
-    def get_matrix(self, rows, alice_cols, bob_cols):
+    def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
+        matrix = Matrix(rows, num_cols, secret_type)
         for i in range(alice_cols):
-            matrix.set_column(i, sint.get_input_from(0, size=rows)) 
+            matrix.set_column(i, secret_type.get_input_from(0, size=rows))
         for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
+            matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))
         return matrix
 
 
@@ -230,9 +230,9 @@ class CircuitPsiInput(Input):
             array.input_from(1)
         return array
 
-    def get_matrix(self, rows, alice_cols, bob_cols):
+    def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
+        matrix = Matrix(rows, num_cols, secret_type)
         mod = 2**32
         for i in range(alice_cols):
             if self.share == 'add32':
@@ -245,7 +245,7 @@ class CircuitPsiInput(Input):
                                     sint.get_input_from(0).bit_decompose(),
                                     sint.get_input_from(1).bit_decompose()))
         for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))    
+            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))
         return matrix
 
 
@@ -265,9 +265,9 @@ class CrossPsiInput(Input):
         array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**64
         return array
 
-    def get_matrix(self, rows, alice_cols, bob_cols):
+    def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
+        matrix = Matrix(rows, num_cols, secret_type)
         mod = 2**64
         for i in range(num_cols):
             matrix.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
@@ -294,9 +294,9 @@ class CrossPsiXorInput(Input):
                                 sint.get_input_from(1).bit_decompose()))
         return array
 
-    def get_matrix(self, rows, alice_cols, bob_cols):
+    def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
-        matrix = Matrix(rows, num_cols, sint)
+        matrix = Matrix(rows, num_cols, secret_type)
         for i in range(num_cols):
             @for_range_opt(rows)
             def _(j):
