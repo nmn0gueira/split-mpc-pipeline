@@ -20,6 +20,14 @@ protocol_requirements = {
     "ps3i-xor": "full"
 }
 
+protocol_check_paths = {
+    "psi": lambda p: p,
+    "cpsi": lambda p: p,
+    "ps3i": lambda p: p,
+    "ps3i-xor": lambda p: p + "_company_feature.csv",
+    "pid": lambda p: p,
+}
+
 
 def cleanup_temp_files(temp_files):
     for temp_file in temp_files:
@@ -118,7 +126,7 @@ def post_process_ps3i_xor(output_path):
 
 def post_process_pid(input_path, output_path):
     input_df = pd.read_csv(input_path, header=None)
-    output_df = pd.read_csv(output_path, header=None)
+    output_df = pd.read_csv(output_path, header=None, dtype=str)
 
     mapping_series = pd.Series(output_df.index, index=output_df[0])
     mapped_indices = mapping_series.loc[output_df.iloc[:len(input_df), 1]].to_numpy()
@@ -158,9 +166,7 @@ def get_modification_time(file_path):
 
 def run_protocol(protocol_name, input_path, input_id_path, output_path, address, protocol_args):
     is_server = address.split(':')[0] == '0.0.0.0'
-    check_path = output_path  # The way check_path is used is very scuffed but it works for now
-    if protocol_name == 'ps3i-xor':
-        check_path += '_company_feature.csv'
+    check_path = protocol_check_paths[protocol_name](output_path)
     modification_time = get_modification_time(check_path)
 
     effective_input_path = get_effective_input_path(protocol_name, input_path, input_id_path, is_server=is_server)
