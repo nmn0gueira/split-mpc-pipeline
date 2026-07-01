@@ -1,4 +1,3 @@
-# Class for simpler functions with no need for a class structure
 def mux(cond, true_val, false_val):
     return cond.if_else(true_val, false_val)
 

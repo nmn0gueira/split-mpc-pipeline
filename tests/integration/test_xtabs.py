@@ -60,9 +60,6 @@ class TestXtabsSum1Ps3i:
 
 class TestXtabsSum1Cpsi:
     def test_xor_flag_and_additive_alice_shares(self):
-        # flag=[1,1,1,1]: XOR shares P0=[0,0,0,0], P1=[1,1,1,1]
-        # groups=[0,1,0,1]: add32 shares P0=[0,1,0,1], P1=[0,0,0,0]
-        # values=[10,20,30,40]: Bob provides directly on P1
         write_player_input(0, [0, 0, 0, 0], [0, 1, 0, 1])
         write_player_input(1, [1, 1, 1, 1], [0, 0, 0, 0], [10, 20, 30, 40])
         compile_program("xtabs.py", *CPSI_FLAGS, *XTABS_ARGS)
@@ -72,10 +69,8 @@ class TestXtabsSum1Cpsi:
 
 class TestXtabsSum1Pid:
     def test_flag_masks_non_intersection_rows(self):
-        # flag=[1,1,0,0]: rows 2,3 not in intersection; their values are zeroed
         write_player_input(0, [1, 1, 0, 0], [0, 1, 0, 1])
         write_player_input(1, [1, 1, 0, 0], [10, 20, 30, 40])
         compile_program("xtabs.py", *PID_FLAGS, *XTABS_ARGS)
         output = run_program("ring.sh", "xtabs-sum-1")
-        # Only rows 0,1 contribute: group 0→10, group 1→20
         assert parse_int_array(output) == [10, 20]
