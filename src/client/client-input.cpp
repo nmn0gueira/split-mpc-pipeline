@@ -23,7 +23,7 @@ NumType detect_number(const std::string& string)
 {
     std::istringstream iss(string);
     std::string token;
-    if (!(iss >> token))                 // empty line → invalid
+    if (!(iss >> token))
         return NumType::Invalid;
 
     int intVal;
@@ -32,12 +32,12 @@ NumType detect_number(const std::string& string)
 
     auto intRes = std::from_chars(intBegin, intEnd, intVal);
     if (intRes.ec == std::errc() && intRes.ptr == intEnd)
-        return NumType::Int;             // whole token parsed as int
+        return NumType::Int;
 
     char* endPtr = nullptr;
     std::strtod(token.c_str(), &endPtr);
     if (endPtr != nullptr && *endPtr == '\0')
-        return NumType::Float;           // whole token parsed as float
+        return NumType::Float;
 
     return NumType::Invalid;
 }
@@ -63,10 +63,10 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
     
     if (num_type == NumType::Float) {
         for (const auto& s : strs) {
-            values.emplace_back(long(round(std::stoi(s)) *  exp2(16)));    // sfix with f = 16 (this means s must be within signed short range)
+            values.emplace_back(long(round(std::stod(s) * exp2(16))));    // sfix with f = 16
         }
         return values;
-    }    
+    }
 
     throw runtime_error("Vector contains invalid elements");
 }
@@ -77,7 +77,6 @@ void run(const std::vector<std::vector<string>> &data, int output_length, Client
 {
     for (const auto& row : data) {
         client.send_private_inputs<T>(wrap_values<T>(row));
-        cout << "Sent row of private inputs to each SPDZ engine..." << endl;
     }
     
     cout << "Sent all private inputs to each SPDZ engine, waiting for result..." << endl;
