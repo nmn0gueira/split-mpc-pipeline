@@ -5,27 +5,22 @@ import sys
 
 
 def transform_csv(input_file, output_dir, party, columns=None, transpose=False, do_split=False, split_ratio=0.8):
-    try:
-        df = pd.read_csv(input_file, header=None, dtype=object)
-        num_inputs = len(df)
+    df = pd.read_csv(input_file, header=None, dtype=object)
+    num_inputs = len(df)
 
-        if columns is not None:
-            df = df.iloc[:, columns]
+    if columns is not None:
+        df = df.iloc[:, columns]
 
-        if do_split:
-            train_df, test_df = train_test_split(df, train_size=split_ratio, shuffle=True, random_state=42)
-            df = pd.concat([train_df, test_df])
-        
-        if transpose:
-            df = df.transpose()
+    if do_split:
+        train_df, test_df = train_test_split(df, train_size=split_ratio, shuffle=True, random_state=42)
+        df = pd.concat([train_df, test_df])
 
-        output_file = f"{output_dir}/Input-P{party}-0"
-        df.to_csv(output_file, sep=' ', index=False, header=False)
-        print(f"Successfully wrote {num_inputs} lines to {output_file}")
+    if transpose:
+        df = df.transpose()
 
-    except Exception as e:
-        print(f"Error during transformation: {e}", file=sys.stderr)
-        sys.exit(1)
+    output_file = f"{output_dir}/Input-P{party}-0"
+    df.to_csv(output_file, sep=' ', index=False, header=False)
+    print(f"Successfully wrote {num_inputs} lines to {output_file}")
 
 
 def parse_columns(column_str):
@@ -47,15 +42,19 @@ def main():
     #parser.add_argument("--num-files", type=int, default=1, help="Number of output files to split the data into")
 
     args = parser.parse_args()
-    transform_csv(
-        args.input,
-        args.output_dir,
-        args.party,
-        columns=args.columns,
-        transpose=args.transpose,
-        do_split=args.split,
-        split_ratio=args.split_ratio
-    )
+    try:
+        transform_csv(
+            args.input,
+            args.output_dir,
+            args.party,
+            columns=args.columns,
+            transpose=args.transpose,
+            do_split=args.split,
+            split_ratio=args.split_ratio
+        )
+    except Exception as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

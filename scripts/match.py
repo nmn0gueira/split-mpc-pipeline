@@ -155,8 +155,7 @@ def post_process(protocol_name, input_path, output_path, **kwargs):
     elif protocol_name == 'pid':
         post_process_pid(input_path, output_path)
     else:
-        logging.error(f"No transformation logic defined for '{protocol_name}'")
-        sys.exit(1)
+        raise RuntimeError(f"No transformation logic defined for '{protocol_name}'")
 
 def get_modification_time(file_path):
     try:
@@ -184,16 +183,11 @@ def run_protocol(protocol_name, input_path, input_id_path, output_path, address,
         sys.exit(1)
 
     cmd = protocol_commands[protocol_name]()
-
-    try:
-        logging.info(f"Running {protocol_name} protocol with command: {' '.join(cmd)}")
-        subprocess.run(cmd, text=True, stdout=sys.stdout, stderr=sys.stderr, check=True)
-        if modification_time == get_modification_time(check_path):
-            raise subprocess.CalledProcessError(1, cmd, "Output file not modified. Protocol may have failed or produced no output.")
-        post_process(protocol_name, input_path, output_path, is_server=is_server)
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Protocol failed with exit code {e.returncode}")
-        sys.exit(e.returncode)
+    logging.info(f"Running {protocol_name} protocol with command: {' '.join(cmd)}")
+    subprocess.run(cmd, text=True, stdout=sys.stdout, stderr=sys.stderr, check=True)
+    if modification_time == get_modification_time(check_path):
+        raise subprocess.CalledProcessError(1, cmd, "Output file not modified. Protocol may have failed or produced no output.")
+    post_process(protocol_name, input_path, output_path, is_server=is_server)
 
 
 def main():
@@ -209,6 +203,12 @@ def main():
 
     try:
         run_protocol(args.protocol, args.input, args.input_id, args.output, args.address, args.args)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Protocol failed with exit code {e.returncode}")
+        sys.exit(e.returncode)
+    except Exception as e:
+        logging.error(str(e))
+        sys.exit(1)
     finally:
         cleanup_temp_files(TEMP_FILES)
 

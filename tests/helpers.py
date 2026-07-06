@@ -1,19 +1,16 @@
 import os
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 import pytest
 
-WORKSPACE = str(Path(__file__).parents[2])
+from iprep import transform_csv
+from match import run_protocol
+
+WORKSPACE = str(Path(__file__).parents[1])
 PLAYER_DATA = os.path.join(WORKSPACE, "MP-SPDZ", "Player-Data")
-
-
-def write_player_input(party, *rows):
-    path = os.path.join(PLAYER_DATA, f"Input-P{party}-0")
-    with open(path, "w") as f:
-        for row in rows:
-            f.write(" ".join(str(v) for v in row) + "\n")
 
 
 def compile_program(program, *args):
@@ -36,6 +33,14 @@ def run_program(script, name):
     return result.stdout + result.stderr
 
 
+def run_program_background(script, name):
+    return subprocess.Popen(
+        ["scripts/run.sh", script, name],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, cwd=WORKSPACE,
+    )
+
+
 def parse_int_array(output):
     m = re.search(r'\[([^\[\]]+)\]', output)
     assert m, f"No array found in output:\n{output}"
@@ -54,12 +59,11 @@ def parse_labeled_float(output, label):
     return float(m.group(1))
 
 
-def run_program_background(script, name):
-    return subprocess.Popen(
-        ["scripts/run.sh", script, name],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, cwd=WORKSPACE,
-    )
+def write_player_input(party, *rows):
+    path = os.path.join(PLAYER_DATA, f"Input-P{party}-0")
+    with open(path, "w") as f:
+        for row in rows:
+            f.write(" ".join(str(v) for v in row) + "\n")
 
 
 def start_client_background(client_id, nparties, out_len):
@@ -94,3 +98,33 @@ def parse_client_int_outputs(output):
 
 def parse_client_sfix_outputs(output):
     return [int(m.group(1)) / 2**16 for m in re.finditer(r'Output:\s*(\d+)', output)]
+
+
+def write_csv(path, rows):
+    with open(path, "w") as f:
+        for row in rows:
+            f.write(",".join(str(v) for v in row) + "\n")
+
+
+def run_match_background(protocol, input_csv, output_csv, address, extra_args=None):
+    t = threading.Thread(
+        target=run_protocol,
+        args=(protocol, input_csv, None, output_csv, address, extra_args or []),
+        daemon=True,
+    )
+    t.start()
+    return t
+
+
+def run_match(protocol, input_csv, output_csv, address, extra_args=None):
+    run_protocol(protocol, input_csv, None, output_csv, address, extra_args or [])
+
+
+def run_iprep(input_csv, party, columns, player_data_dir=None):
+    transform_csv(
+        input_csv,
+        player_data_dir or PLAYER_DATA,
+        party,
+        columns=columns,
+        transpose=True,
+    )
