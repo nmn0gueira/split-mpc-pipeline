@@ -26,14 +26,18 @@ ALICE_ROWS = [
     ("alice001", 0),
     ("alice002", 1),
     ("shared001", 0),
-    ("shared002", 1),
+    ("shared002", 0),
+    ("shared003", 1),
+    ("shared004", 1)
 ]
 
 BOB_ROWS = [
-    ("bob001", 10),
-    ("bob002", 20),
-    ("shared001", 30),
-    ("shared002", 40),
+    ("bob001", 100),
+    ("bob002", 200),
+    ("shared001", 10),
+    ("shared002", 20),
+    ("shared003", 30),
+    ("shared004", 40)
 ]
 
 
@@ -55,9 +59,9 @@ class TestPsiE2E:
         run_iprep(alice_out, party=0, columns=[0])
         run_iprep(bob_out, party=1, columns=[0])
 
-        compile_program("xtabs.py", *PSI_FLAGS, "--rows", "2", *XTABS_ARGS)
+        compile_program("xtabs.py", *PSI_FLAGS, "--rows", "4", *XTABS_ARGS)
         output = run_program("ring.sh", "xtabs-sum-1")
-        assert parse_int_array(output) == [30, 40]
+        assert parse_int_array(output) == [30, 70]
 
 
 @pytest.mark.requires_volepsi
@@ -78,6 +82,6 @@ class TestCpsiE2E:
         run_iprep(alice_out, party=0, columns=[0, 1])
         run_iprep(bob_out, party=1, columns=[0, 1, 2])
 
-        compile_program("xtabs.py", *CPSI_FLAGS, "--rows", "24", *XTABS_ARGS)   # Testing CPSI with datasets of size 4 and intersection 2 outputs 24 rows
+        compile_program("xtabs.py", *CPSI_FLAGS, "--rows", "36", *XTABS_ARGS)   # Testing CPSI with datasets of size 6 and intersection 4 yields 36 output rows
         output = run_program("ring.sh", "xtabs-sum-1")
-        assert parse_int_array(output) == [30, 40]
+        assert parse_int_array(output) == [30, 70]
