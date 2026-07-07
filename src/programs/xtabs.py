@@ -216,6 +216,7 @@ def main():
         raise ValueError(f"Unsupported number of columns to group by: {num_group_by}")
     
     provider.reveal_output(result)
+    provider.close()
 
 
 if __name__ == "__main__":

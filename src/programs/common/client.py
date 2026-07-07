@@ -41,8 +41,16 @@ class ClientManager:
         start_timer()
 
     def reveal_output(self, result):
-        """Send computation result to all connected clients and close connections."""
+        try:
+            n = 1
+            for s in result.shape:
+                n *= s
+        except AttributeError:
+            n = 1
+        sint.reveal_to_clients(self.sockets.get_sub(self.number_clients), [sint(n)])
         result.reveal_to_clients(self.sockets.get_sub(self.number_clients))
+
+    def close(self):
         @for_range(self.number_clients)
         def _(i):
             closeclientconnection(i)

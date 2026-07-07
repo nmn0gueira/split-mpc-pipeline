@@ -9,4 +9,4 @@ PROTOCOL=psi
 PROTOCOL_ARGS=""
 
 # --hosts is unecessary in localhost (just to exemplify)
-MPC_ARGS="client-input.x --client_id 0 --nparties 3 --out_len 4 --hosts localhost,localhost,localhost"
+MPC_ARGS="client-input.x --client_id 0 --nparties 3 --hosts localhost,localhost,localhost"

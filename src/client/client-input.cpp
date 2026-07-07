@@ -73,13 +73,18 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 
 
 template<class T, class U>
-void run(const std::vector<std::vector<string>> &data, int output_length, Client& client)
+void run(const std::vector<std::vector<string>> &data, Client& client)
 {
     for (const auto& row : data) {
         client.send_private_inputs<T>(wrap_values<T>(row));
     }
-    
+
     cout << "Sent all private inputs to each SPDZ engine, waiting for result..." << endl;
+
+    std::vector<U> length_vec = client.receive_outputs<T>(1);
+    std::ostringstream oss;
+    oss << length_vec[0];
+    int output_length = std::stoi(oss.str());
 
     std::vector<U> result = client.receive_outputs<T>(output_length);
 
@@ -117,7 +122,6 @@ int main(int argc, char** argv)
     int client_id;
     int nparties;
     std::string input_file;
-    int output_length;
     size_t finish;
     int port_base;
     std::vector<std::string> hostnames;
@@ -127,7 +131,6 @@ int main(int argc, char** argv)
                 << "  --client_id <client_identifier>          Identifier of this client\n"
                 << "  --nparties <number_of_parties>           Number of SPDZ engines (i.e., computing parties) in the computation\n"
                 << "  --in <input_file>                        Path to input file (default is Player-Data/Input-P{client_id}-0)\n"
-                << "  --out_len <output_elements_num>          Expected number of elements in the output of the computation\n"
                 << "  [--finish]                               Whether to tell SPDZ engines to stop listening for connections\n"
                 << "  [--port_base <port>]                     Port base for SPDZ engine's connections (default 14000)\n"
                 << "  [--hosts <host_1,host_2,...,host_n>]     Hostnames for the SPDZ engines (default localhost * nparties)\n"
@@ -160,7 +163,6 @@ int main(int argc, char** argv)
         client_id   = std::stoi(args.at("--client_id"));
         nparties    = std::stoi(args.at("--nparties"));
         input_file = args.count("--in") ? args.at("--in") : "Player-Data/Input-P" + std::to_string(client_id) + "-0";
-        output_length = std::stoi(args.at("--out_len"));
         finish = args.count("--finish") ? std::stoi(args.at("--finish")) : 0;
         port_base = args.count("--port_base") ? std::stoi(args.at("--port_base")) : 14000;
 
@@ -177,7 +179,6 @@ int main(int argc, char** argv)
         std::cout << "client_id: " << client_id << "\n"
                   << "nparties: " << nparties << "\n"
                   << "input: " << input_file << "\n"
-                  << "out_len: " << output_length << "\n"
                   << "finish: " << finish << "\n"
                   << "port_base: " << port_base << "\n"
                   << "hosts: ";
@@ -215,7 +216,7 @@ int main(int argc, char** argv)
     {
         gfp::init_field(specification.get<bigint>());
         cerr << "using prime " << gfp::pr() << endl;
-        run<gfp, gfp>(strs, output_length, client);
+        run<gfp, gfp>(strs, client);
         break;
     }
     case 'R':
@@ -230,11 +231,11 @@ int main(int argc, char** argv)
         switch (R)
         {
         case 64:
-            run<Z2<64>, Z2<64>>(strs, output_length, client);
+            run<Z2<64>, Z2<64>>(strs, client);
             break;
         case 128:
             //run<Z2<128>, Z2<64>>(strs, client);   // This was the original, but it resulted in errors when assigning the output of client.receive_outputs to a vector<U>, apparently due to conversion errors from Z2<128> to Z2<64>
-            run<Z2<128>, Z2<128>>(strs, output_length, client);
+            run<Z2<128>, Z2<128>>(strs, client);
             break;
         default:
             cerr << R << "-bit ring not implemented";

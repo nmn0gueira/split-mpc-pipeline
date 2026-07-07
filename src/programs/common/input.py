@@ -56,11 +56,14 @@ class Input:
         self.client = ClientManager() if as_server else None
 
     def reveal_output(self, result):
-        """Reveal computation result to connected clients or print to stdout."""
         if self.as_server:
             self.client.reveal_output(result)
         else:
             result.print_reveal_nested()
+
+    def close(self):
+        if self.as_server:
+            self.client.close()
 
     @abstractmethod
     def get_flag(self, rows):
