@@ -1,5 +1,4 @@
 from Compiler.types import sfix
-from Compiler.library import print_ln
 from Compiler.compilerLib import Compiler
 from Compiler import ml
 from common.input import InputFactory
@@ -81,15 +80,19 @@ def main():
 
     linear = ml.SGDLinear(compiler.options.n_epochs, compiler.options.batch_size)
     linear.fit(X.get_part(0, rows_train), y.get_part(0, rows_train), sample_mask=flag.get_part(0, rows_train) if flag else None)
-    print_ln('Model Weights: %s', linear.opt.layers[0].W[:].reveal())
-    print_ln('Model Bias: %s', linear.opt.layers[0].b.reveal())
 
-    if 'mse' in compiler.prog.args:
+    outputs = [("Model Weights", linear.opt.layers[0].W[:]), ("Model Bias", linear.opt.layers[0].b)]
+
+    compute_mse = 'mse' in compiler.prog.args
+    if compute_mse:
         if rows_test <= 0:
             raise ValueError("Cannot calculate mse without test dataset. Compile with an appropriate test size.")
         y_pred = linear.predict(X.get_part(rows_train, rows_test))
         mse = mean_squared_error(y.get_part(rows_train, rows_test), y_pred, flag.get_part(rows_train, rows_test) if flag else None)
-        print_ln('Mean Squared Error on Test Set: %s', mse.reveal())
+        outputs.append(("MSE", mse))
+
+    provider.reveal_output(outputs)
+    provider.close()
 
 
 if __name__ == "__main__":

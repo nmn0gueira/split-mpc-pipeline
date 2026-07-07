@@ -40,15 +40,23 @@ class ClientManager:
 
         start_timer()
 
-    def reveal_output(self, result):
-        try:
-            n = 1
-            for s in result.shape:
-                n *= s
-        except AttributeError:
-            n = 1
-        sint.reveal_to_clients(self.sockets.get_sub(self.number_clients), [sint(n)])
-        result.reveal_to_clients(self.sockets.get_sub(self.number_clients))
+    def reveal_output(self, labeled_outputs):
+        def size_of(val):
+            if hasattr(val, 'shape'):
+                n = 1
+                for s in val.shape:
+                    n *= s
+                return n
+            else:
+                return 1
+
+        total = sum(size_of(val) for _, val in labeled_outputs)
+        sint.reveal_to_clients(self.sockets.get_sub(self.number_clients), [sint(total)])
+        for _, val in labeled_outputs:
+            if hasattr(val, 'shape'):
+                val.reveal_to_clients(self.sockets.get_sub(self.number_clients))
+            else:
+                type(val).reveal_to_clients(self.sockets.get_sub(self.number_clients), [val])
 
     def close(self):
         @for_range(self.number_clients)

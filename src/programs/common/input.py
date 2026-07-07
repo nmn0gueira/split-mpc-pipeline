@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from Compiler.library import for_range_opt
+from Compiler.library import for_range_opt, print_ln
 from Compiler.types import sint, sintbit, Matrix, Array
 
 from common.client import ClientManager
@@ -55,11 +55,12 @@ class Input:
         self.as_server = as_server
         self.client = ClientManager() if as_server else None
 
-    def reveal_output(self, result):
+    def reveal_output(self, labeled_outputs):
         if self.as_server:
-            self.client.reveal_output(result)
+            self.client.reveal_output(labeled_outputs)
         else:
-            result.print_reveal_nested()
+            for label, val in labeled_outputs:
+                print_ln('%s: %s', label, val.reveal())
 
     def close(self):
         if self.as_server:
