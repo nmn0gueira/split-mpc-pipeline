@@ -3,7 +3,7 @@
 set -e
 
 fromsource=$1
-MP_SPDZ_VERSION="0.4.2"
+MP_SPDZ_VERSION="0.4.3"
 
 if [ "$fromsource" = "yes" ]; then
     # this may take a long time
@@ -29,7 +29,7 @@ sed -i -E "/^externalIO/ s/$/ ${CLIENT}.x/" Makefile
 echo "${CLIENT}.x: ExternalIO/${CLIENT}.o \$(COMMON)
 	\$(CXX) \$(CFLAGS) -o \$@ $^ \$(LDLIBS)" >> Makefile
 
-cp "../src/${CLIENT}.cpp" "ExternalIO/${CLIENT}.cpp"
+cp "../src/client/${CLIENT}.cpp" "ExternalIO/${CLIENT}.cpp"
 
 make "${CLIENT}.x"
 
