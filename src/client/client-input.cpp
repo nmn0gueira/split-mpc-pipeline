@@ -14,8 +14,6 @@
 #include <sstream>
 #include <fstream>
 
-#include <charconv>
-
 
 enum class NumType { Int, Float, Invalid };
 
@@ -26,12 +24,11 @@ NumType detect_number(const std::string& string)
     if (!(iss >> token))
         return NumType::Invalid;
 
-    int intVal;
-    const char* intBegin = token.c_str();
-    const char* intEnd   = intBegin + token.size();
-
-    auto intRes = std::from_chars(intBegin, intEnd, intVal);
-    if (intRes.ec == std::errc() && intRes.ptr == intEnd)
+    size_t start = (!token.empty() && token[0] == '-') ? 1 : 0;
+    bool is_int = start < token.size();
+    for (size_t i = start; i < token.size() && is_int; i++)
+        is_int = std::isdigit((unsigned char)token[i]);
+    if (is_int)
         return NumType::Int;
 
     char* endPtr = nullptr;
@@ -56,7 +53,7 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 
     if (num_type == NumType::Int) {
         for (const auto& s : strs) {
-            values.emplace_back(long(round(std::stoi(s))));    // sint
+            values.emplace_back(!s.empty() && s[0] == '-' ? std::stol(s) : (long)std::stoul(s));
         }
         return values;
     }
@@ -72,7 +69,7 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 }
 
 
-// Parse a decimal string of any magnitude to signed 64-bit by accumulating digits mod 2^64 (natural unsigned overflow) then reinterpreting as two's complement.
+// stoul fails for Z2<128> outputs (39-digit strings exceed ULONG_MAX) so we do this digit accumulation mod 2^64 to take the low 64 bits of the ring size
 template<class U>
 long long to_signed(const U& val) {
     std::ostringstream oss;

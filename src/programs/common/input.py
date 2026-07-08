@@ -163,11 +163,11 @@ class CircuitPsiInput(Input):
         if self.share not in ['xor', 'add32']:
             raise ValueError(f"Unsupported share type: {self.share}")
 
-    # other - 2 * self * other
     def get_flag(self, rows):
         flag = Array(rows, sintbit)
         flag.assign_vector(self._get_input_from(0, rows, sintbit))
-        flag[:] ^= self._get_input_from(1, rows, sintbit)
+        aux = self._get_input_from(1, rows, sintbit)
+        flag[:] += aux - 2 * flag[:] * aux  # seems to be slightly better than just using add mod 2
         return flag
 
     def get_array(self, rows, party, secret_type):
