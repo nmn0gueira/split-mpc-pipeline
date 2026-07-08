@@ -54,6 +54,10 @@ class Input:
     def __init__(self, as_server):
         self.as_server = as_server
         self.client = ClientManager() if as_server else None
+        if as_server:
+            self._get_input_from = lambda party, rows, st: st.receive_from_client(1, self.client.sockets[party], size=rows)[0]
+        else:
+            self._get_input_from = lambda party, rows, st: st.get_input_from(party, size=rows)
 
     def reveal_output(self, labeled_outputs):
         if self.as_server:
@@ -105,25 +109,16 @@ class PsiInput(Input):
 
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
-        if self.as_server:
-            array.assign_vector(secret_type.receive_from_client(1, self.client.sockets[party], size=rows)[0])
-        else:
-            array.input_from(party)
+        array.assign_vector(self._get_input_from(party, rows, secret_type))
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
         matrix = Matrix(rows, num_cols, secret_type)
-        if self.as_server:
-            for i in range(alice_cols):
-                matrix.set_column(i, secret_type.receive_from_client(1, self.client.sockets[0], size=rows)[0])
-            for i in range(bob_cols):
-                matrix.set_column(alice_cols + i, secret_type.receive_from_client(1, self.client.sockets[1], size=rows)[0])
-        else:
-            for i in range(alice_cols):
-                matrix.set_column(i, secret_type.get_input_from(0, size=rows))
-            for i in range(bob_cols):
-                matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))
+        for i in range(alice_cols):
+            matrix.set_column(i, self._get_input_from(0, rows, secret_type))
+        for i in range(bob_cols):
+            matrix.set_column(alice_cols + i, self._get_input_from(1, rows, secret_type))
         return matrix
 
 
@@ -137,22 +132,22 @@ class PrivateIdInput(Input):
 
     def get_flag(self, rows):
         flag = Array(rows, sintbit)
-        flag.input_from(0)
-        flag[:] &= sintbit.get_input_from(1, size=rows)
+        flag.assign_vector(self._get_input_from(0, rows, sintbit))
+        flag[:] *= self._get_input_from(1, rows, sintbit)   # sintbit supports &= but in server mode it seems to interpret all sintbit as sint so we just put it as *= which is what would happen internally anyway
         return flag
 
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
-        array.input_from(party)
+        array.assign_vector(self._get_input_from(party, rows, secret_type))
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
         matrix = Matrix(rows, num_cols, secret_type)
         for i in range(alice_cols):
-            matrix.set_column(i, secret_type.get_input_from(0, size=rows))
+            matrix.set_column(i, self._get_input_from(0, rows, secret_type))
         for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, secret_type.get_input_from(1, size=rows))
+            matrix.set_column(alice_cols + i, self._get_input_from(1, rows, secret_type))
         return matrix
 
 
@@ -168,27 +163,29 @@ class CircuitPsiInput(Input):
         if self.share not in ['xor', 'add32']:
             raise ValueError(f"Unsupported share type: {self.share}")
 
+    # other - 2 * self * other
     def get_flag(self, rows):
         flag = Array(rows, sintbit)
-        flag.input_from(0)
-        flag[:] ^= sintbit.get_input_from(1, size=rows)
+        flag.assign_vector(self._get_input_from(0, rows, sintbit))
+        flag[:] ^= self._get_input_from(1, rows, sintbit)
         return flag
 
     def get_array(self, rows, party, secret_type):
+        array = Array(rows, secret_type)
         if party == 0:
-            array = Array(rows, secret_type)
             if self.share == 'add32':
-                array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**32
+                array[:] = (self._get_input_from(0, rows, sint) + self._get_input_from(1, rows, sint)) % 2**32
             else:
+                shares_0 = Array.create_from(self._get_input_from(0, rows, sint))
+                shares_1 = Array.create_from(self._get_input_from(1, rows, sint))
                 @for_range_opt(rows)
                 def _(i):
                     array[i] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
-        else:  # party == 'b'
-            array = Array(rows, secret_type)
-            array.input_from(1)
+                                    for x,y in zip(
+                                        shares_0[i].bit_decompose(),
+                                        shares_1[i].bit_decompose()))
+        else:
+            array.assign_vector(self._get_input_from(1, rows, secret_type))
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
@@ -197,16 +194,18 @@ class CircuitPsiInput(Input):
         mod = 2**32
         for i in range(alice_cols):
             if self.share == 'add32':
-                matrix.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
+                matrix.set_column(i, (self._get_input_from(0, rows, sint) + self._get_input_from(1, rows, sint)) % mod)
             else:
+                shares_0 = Array.create_from(self._get_input_from(0, rows, sint))
+                shares_1 = Array.create_from(self._get_input_from(1, rows, sint))
                 @for_range_opt(rows)
                 def _(j):
                     matrix[j][i] = sint.bit_compose(x.bit_xor(y)
-                                for x,y in zip(
-                                    sint.get_input_from(0).bit_decompose(),
-                                    sint.get_input_from(1).bit_decompose()))
+                                        for x,y in zip(
+                                            shares_0[j].bit_decompose(),
+                                            shares_1[j].bit_decompose()))
         for i in range(bob_cols):
-            matrix.set_column(alice_cols + i, sint.get_input_from(1, size=rows))
+            matrix.set_column(alice_cols + i, self._get_input_from(1, rows, secret_type))
         return matrix
 
 
@@ -223,7 +222,7 @@ class CrossPsiInput(Input):
 
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
-        array[:] = (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % 2**64
+        array[:] = (self._get_input_from(0, rows, sint) + self._get_input_from(1, rows, sint)) % 2**64
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
@@ -231,7 +230,7 @@ class CrossPsiInput(Input):
         matrix = Matrix(rows, num_cols, secret_type)
         mod = 2**64
         for i in range(num_cols):
-            matrix.set_column(i, (sint.get_input_from(0, size=rows) + sint.get_input_from(1, size=rows)) % mod)
+            matrix.set_column(i, (self._get_input_from(0, rows, sint) + self._get_input_from(1, rows, sint)) % mod)
         return matrix
 
 
@@ -247,22 +246,26 @@ class CrossPsiXorInput(Input):
 
     def get_array(self, rows, party, secret_type):
         array = Array(rows, secret_type)
+        shares_0 = Array.create_from(self._get_input_from(0, rows, sint))
+        shares_1 = Array.create_from(self._get_input_from(1, rows, sint))
         @for_range_opt(rows)
         def _(i):
             array[i] = sint.bit_compose(x.bit_xor(y)
                             for x,y in zip(
-                                sint.get_input_from(0).bit_decompose(),
-                                sint.get_input_from(1).bit_decompose()))
+                                shares_0[i].bit_decompose(),
+                                shares_1[i].bit_decompose()))
         return array
 
     def get_matrix(self, rows, alice_cols, bob_cols, secret_type=sint):
         num_cols = alice_cols + bob_cols
         matrix = Matrix(rows, num_cols, secret_type)
         for i in range(num_cols):
+            shares_0 = Array.create_from(self._get_input_from(0, rows, sint))
+            shares_1 = Array.create_from(self._get_input_from(1, rows, sint))
             @for_range_opt(rows)
             def _(j):
                 matrix[j][i] = sint.bit_compose(x.bit_xor(y)
-                            for x,y in zip(
-                                sint.get_input_from(0).bit_decompose(),
-                                sint.get_input_from(1).bit_decompose()))
+                                    for x,y in zip(
+                                        shares_0[j].bit_decompose(),
+                                        shares_1[j].bit_decompose()))
         return matrix
