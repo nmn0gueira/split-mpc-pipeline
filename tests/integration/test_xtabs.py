@@ -51,8 +51,14 @@ class TestXtabsSum1Psi:
 
 class TestXtabsSum1Ps3i:
     def test_additive_share_reconstruction(self):
-        write_player_input(0, [0, 1, 0, 1], [10, 20, 30, 40])
-        write_player_input(1, [0, 0, 0, 0], [0, 0, 0, 0])
+        write_player_input(0,
+            [8765432109876543210, 3456789012345678901, 7890123456789012345, 2345678901234567890],
+            [6789012345678901234, 1234567890123456789, 9012345678901234567, 4567890123456789012],
+        )
+        write_player_input(1,
+            [9681311963833008406, 14989955061363872716, 10556620616920539271, 16101065172474983727],
+            [11657731728030650392, 17212176183586094847, 9434398394808317079, 13878853950252762644],
+        )
         compile_program("xtabs.py", *PS3I_FLAGS, *XTABS_ARGS)
         output = run_program("ring.sh", "xtabs-sum-1")
         assert parse_int_array(output) == [40, 60]
@@ -60,8 +66,8 @@ class TestXtabsSum1Ps3i:
 
 class TestXtabsSum1Cpsi:
     def test_xor_flag_and_additive_alice_shares(self):
-        write_player_input(0, [0, 0, 0, 0], [0, 1, 0, 1])
-        write_player_input(1, [1, 1, 1, 1], [0, 0, 0, 0], [10, 20, 30, 40])
+        write_player_input(0, [1, 0, 1, 0], [2847392156, 1923847561, 3912847561, 847392156])
+        write_player_input(1, [0, 1, 0, 1], [1447575140, 2371119736, 382119735, 3447575141], [10, 20, 30, 40])
         compile_program("xtabs.py", *CPSI_FLAGS, *XTABS_ARGS)
         output = run_program("ring.sh", "xtabs-sum-1")
         assert parse_int_array(output) == [40, 60]
