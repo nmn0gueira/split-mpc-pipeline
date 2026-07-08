@@ -66,23 +66,21 @@ def write_player_input(party, *rows):
             f.write(" ".join(str(v) for v in row) + "\n")
 
 
-def start_client_background(client_id, nparties, out_len):
+def start_client_background(client_id, nparties):
     return subprocess.Popen(
         ["scripts/run.sh", "client-input.x",
          "--client_id", str(client_id),
-         "--nparties", str(nparties),
-         "--out_len", str(out_len)],
+         "--nparties", str(nparties)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, cwd=WORKSPACE,
     )
 
 
-def run_client(client_id, nparties, out_len, finish=False):
+def run_client(client_id, nparties, finish=False):
     args = [
         "scripts/run.sh", "client-input.x",
         "--client_id", str(client_id),
         "--nparties", str(nparties),
-        "--out_len", str(out_len),
     ]
     if finish:
         args.append("--finish")
@@ -93,11 +91,11 @@ def run_client(client_id, nparties, out_len, finish=False):
 
 
 def parse_client_int_outputs(output):
-    return [int(m.group(1)) for m in re.finditer(r'Output:\s*(\d+)', output)]
+    return [int(m.group(1)) for m in re.finditer(r'Output:\s*(-?\d+)', output)]
 
 
 def parse_client_sfix_outputs(output):
-    return [int(m.group(1)) / 2**16 for m in re.finditer(r'Output:\s*(\d+)', output)]
+    return [float(m.group(1)) for m in re.finditer(r'Output:\s*(-?[\d.]+)', output)]
 
 
 def write_csv(path, rows):

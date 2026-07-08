@@ -28,8 +28,8 @@ class TestAsServer:
         mpc = run_program_background("ring.sh", "xtabs-sum-1")
         time.sleep(2)
 
-        client0 = start_client_background(0, nparties=3, out_len=2)
-        run_client(1, nparties=3, out_len=2, finish=True)
+        client0 = start_client_background(0, nparties=3)
+        run_client(1, nparties=3, finish=True)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)
@@ -49,8 +49,8 @@ class TestAsServer:
         mpc = run_program_background("ring.sh", "xtabs-sum-1")
         time.sleep(2)
 
-        client0 = start_client_background(0, nparties=3, out_len=2)
-        run_client(1, nparties=3, out_len=2, finish=True)
+        client0 = start_client_background(0, nparties=3)
+        run_client(1, nparties=3, finish=True)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)
