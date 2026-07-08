@@ -116,9 +116,9 @@ class PsiInput(Input):
         matrix = Matrix(rows, num_cols, secret_type)
         if self.as_server:
             for i in range(alice_cols):
-                matrix.set_column(i, sint.receive_from_client(1, self.client.sockets[0], size=rows)[0])
+                matrix.set_column(i, secret_type.receive_from_client(1, self.client.sockets[0], size=rows)[0])
             for i in range(bob_cols):
-                matrix.set_column(alice_cols + i, sint.receive_from_client(1, self.client.sockets[1], size=rows)[0])
+                matrix.set_column(alice_cols + i, secret_type.receive_from_client(1, self.client.sockets[1], size=rows)[0])
         else:
             for i in range(alice_cols):
                 matrix.set_column(i, secret_type.get_input_from(0, size=rows))

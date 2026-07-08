@@ -72,6 +72,18 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 }
 
 
+// Parse a decimal string of any magnitude to signed 64-bit by accumulating digits mod 2^64 (natural unsigned overflow) then reinterpreting as two's complement.
+template<class U>
+long long to_signed(const U& val) {
+    std::ostringstream oss;
+    oss << val;
+    unsigned long long u = 0;
+    for (char c : oss.str())
+        if (c >= '0' && c <= '9') u = u * 10 + (c - '0');
+    return (long long)u;
+}
+
+
 template<class T, class U>
 void run(const std::vector<std::vector<string>> &data, Client& client)
 {
@@ -81,15 +93,35 @@ void run(const std::vector<std::vector<string>> &data, Client& client)
 
     cout << "Sent all private inputs to each SPDZ engine, waiting for result..." << endl;
 
-    std::vector<U> length_vec = client.receive_outputs<T>(1);
-    std::ostringstream oss;
-    oss << length_vec[0];
-    int output_length = std::stoi(oss.str());
+    int batch_id = 0;
+    while(true) {
+        std::vector<U> header = client.receive_outputs<T>(2);
+        long long output_length = to_signed(header[0]);
+        long long type_id = to_signed(header[1]);
 
-    std::vector<U> result = client.receive_outputs<T>(output_length);
+        if (output_length == -1 && type_id == -1) // Termination header
+            return;
 
-    for (const auto& r : result)
-        cout << "Output: " << r << endl;
+        std::vector<U> result = client.receive_outputs<T>(output_length);
+        cout << "Batch " << batch_id << ":" << endl;
+
+        if (type_id == 0) { // sint
+            for (const auto& r : result) {
+                cout << "Output: " << to_signed(r) << endl;
+            }
+        }
+
+        else if (type_id == 1) { // sfix
+            for (const auto& r : result) {
+                cout << "Output: " << (double)to_signed(r) / exp2(16) << endl;
+            }
+        }
+
+        else
+            throw std::runtime_error("Unrecognized type id: " + std::to_string(type_id));
+
+        ++batch_id;
+    }
 }
 
 

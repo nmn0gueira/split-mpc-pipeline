@@ -1,6 +1,6 @@
 from Compiler.instructions import closeclientconnection
 from Compiler.library import accept_client_connection, do_while, for_range, if_, listen_for_clients, print_ln, start_timer, stop_timer
-from Compiler.types import Array, MemValue, regint, sint
+from Compiler.types import Array, MemValue, regint, sint, sfix
 
 PORTNUM = 14000
 MAX_NUM_CLIENTS = 8
@@ -48,17 +48,34 @@ class ClientManager:
                     n *= s
                 return n
             else:
-                return 1
+                return len(val)
+            
+        def get_basic_type(val):
+            if hasattr(val, 'shape'):
+                return type(val[0])
+            else:
+                return type(val)
+            
+        def get_type_id(secret_type):
+            if secret_type == sint:
+                return sint(0)
+            elif secret_type == sfix:
+                return sint(1)
+            else:
+                raise AttributeError(f"Unhandled type id: {secret_type}")
 
-        total = sum(size_of(val) for _, val in labeled_outputs)
-        sint.reveal_to_clients(self.sockets.get_sub(self.number_clients), [sint(total)])
         for _, val in labeled_outputs:
+            length = size_of(val)
+            basic_type = get_basic_type(val)
+            sint.reveal_to_clients(self.sockets.get_sub(self.number_clients), [sint(length), get_type_id(basic_type)])
             if hasattr(val, 'shape'):
                 val.reveal_to_clients(self.sockets.get_sub(self.number_clients))
             else:
                 type(val).reveal_to_clients(self.sockets.get_sub(self.number_clients), [val])
+    
 
     def close(self):
+        sint.reveal_to_clients(self.sockets.get_sub(self.number_clients), [sint(-1), sint(-1)])
         @for_range(self.number_clients)
         def _(i):
             closeclientconnection(i)
