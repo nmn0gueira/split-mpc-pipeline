@@ -26,7 +26,7 @@ if [ "${RUN_IPREP:-true}" = true ]; then
         --input "$MATCHED_OUTPUT" \
         --party "$PARTY" \
         --columns "$INPUT_COLUMNS" \
-        --transpose
+       
 fi
 
 if [ "${RUN_COMPILE:-true}" = true ]; then

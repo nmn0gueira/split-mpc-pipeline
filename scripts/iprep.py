@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 import sys
 
 
-def transform_csv(input_file, output_dir, party, columns=None, transpose=False, do_split=False, split_ratio=0.8):
+def transform_csv(input_file, output_dir, party, columns=None, do_split=False, split_ratio=0.8):
     df = pd.read_csv(input_file, header=None, dtype=object)
     num_inputs = len(df)
 
@@ -15,8 +15,7 @@ def transform_csv(input_file, output_dir, party, columns=None, transpose=False, 
         train_df, test_df = train_test_split(df, train_size=split_ratio, shuffle=True, random_state=42)
         df = pd.concat([train_df, test_df])
 
-    if transpose:
-        df = df.transpose()
+    df = df.transpose()
 
     output_file = f"{output_dir}/Input-P{party}-0"
     df.to_csv(output_file, sep=' ', index=False, header=False)
@@ -36,7 +35,6 @@ def main():
     parser.add_argument("--output_dir", type=str, default='MP-SPDZ/Player-Data', help="Directory to output the file(s) (default: MP-SPDZ/Player-Data)")
     parser.add_argument("--party", type=int, required=True, help="Party number")
     parser.add_argument("--columns", type=parse_columns, help="Comma-separated list of column indices (e.g., 0,2,3)")
-    parser.add_argument("--transpose", action="store_true", help="Transpose the output CSV")
     parser.add_argument("--split", action="store_true", help="Split into train/test and append test after train")
     parser.add_argument("--split-ratio", type=float, default=0.8, help="Train/test split ratio (default: 0.8)")
     #parser.add_argument("--num-files", type=int, default=1, help="Number of output files to split the data into")
@@ -48,7 +46,6 @@ def main():
             args.output_dir,
             args.party,
             columns=args.columns,
-            transpose=args.transpose,
             do_split=args.split,
             split_ratio=args.split_ratio
         )

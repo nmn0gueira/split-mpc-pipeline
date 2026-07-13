@@ -124,5 +124,4 @@ def run_iprep(input_csv, party, columns, player_data_dir=None):
         player_data_dir or PLAYER_DATA,
         party,
         columns=columns,
-        transpose=True,
     )
