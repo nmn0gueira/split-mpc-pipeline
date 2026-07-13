@@ -84,7 +84,7 @@ class TestPostProcessCpsi:
 
         write_csv(output_file, [[0, HEX_10], [1, HEX_99]])
 
-        post_process_cpsi("unused", str(output_file), is_server=False)
+        post_process_cpsi("unused", str(output_file), is_server=False, temp_files=[])
 
         result = read_csv(output_file)
         assert result[0].tolist() == [0, 1]
@@ -95,7 +95,7 @@ class TestPostProcessCpsi:
 
         write_csv(output_file, [[0, HEX_10, HEX_77], [1, HEX_99, HEX_10]])
 
-        post_process_cpsi("unused", str(output_file), is_server=False)
+        post_process_cpsi("unused", str(output_file), is_server=False, temp_files=[])
 
         result = read_csv(output_file)
         assert result[1].tolist() == [10, 99]
@@ -110,7 +110,7 @@ class TestPostProcessCpsi:
         write_csv(output_file, [[0, HEX_10], [1, HEX_10], [0, HEX_10], [1, HEX_10]])
         mapping_file.write_text("1\n3")
 
-        post_process_cpsi(str(input_file), str(output_file), is_server=True)
+        post_process_cpsi(str(input_file), str(output_file), is_server=True, temp_files=[])
 
         result = read_csv(output_file)
         assert result.shape == (4, 3)  # flag col, share col, bob's value col
@@ -125,7 +125,7 @@ class TestPostProcessCpsi:
         write_csv(output_file, [[0, HEX_10], [1, HEX_10], [0, HEX_10]])
         mapping_file.write_text("2")
 
-        post_process_cpsi(str(input_file), str(output_file), is_server=True)
+        post_process_cpsi(str(input_file), str(output_file), is_server=True, temp_files=[])
 
         result = read_csv(output_file)
         assert result[2].tolist() == [0, 0, 42]
@@ -138,7 +138,7 @@ class TestPostProcessPs3iXor:
         write_csv(output_path + "_company_feature.csv", [[10, 20], [30, 40]])
         write_csv(output_path + "_partner_feature.csv", [[1, 2], [3, 4]])
 
-        post_process_ps3i_xor(output_path)
+        post_process_ps3i_xor(output_path, [])
 
         result = read_csv(output_path)
         assert result.shape == (2, 4)
@@ -151,7 +151,7 @@ class TestPostProcessPs3iXor:
         write_csv(output_path + "_company_feature.csv", [[5], [6]])
         write_csv(output_path + "_partner_feature.csv", [[7], [8]])
 
-        post_process_ps3i_xor(output_path)
+        post_process_ps3i_xor(output_path, [])
 
         result = read_csv(output_path)
         assert result.shape == (2, 2)
@@ -180,7 +180,7 @@ class TestPostProcessPid:
             ["uid_d", "extra"],
         ])
 
-        post_process_pid(str(input_file), str(output_file))
+        post_process_pid(str(input_file), str(output_file), [])
 
         result = read_csv(output_file)
         assert result.shape == (4, 2)
@@ -198,7 +198,7 @@ class TestPostProcessPid:
             ["uid_z", "extra"],
         ])
 
-        post_process_pid(str(input_file), str(output_file))
+        post_process_pid(str(input_file), str(output_file), [])
 
         result = read_csv(output_file)
         assert len(result) == 3
@@ -213,7 +213,7 @@ class TestPostProcessPid:
             ["uid_a", "extra"],
         ])
 
-        post_process_pid(str(input_file), str(output_file))
+        post_process_pid(str(input_file), str(output_file), [])
 
         result = read_csv(output_file)
         # alice→uid_a is at row 1
@@ -225,14 +225,14 @@ class TestGetEffectiveInputPath:
     def test_psi_uses_provided_id_path(self, tmp_path):
         id_file = tmp_path / "ids.csv"
         id_file.touch()
-        result = get_effective_input_path("psi", "full.csv", str(id_file))
+        result = get_effective_input_path("psi", "full.csv", str(id_file), [])
         assert result == str(id_file)
 
     def test_psi_extracts_ids_when_no_id_path(self, tmp_path):
         input_file = tmp_path / "alice.csv"
         write_csv(input_file, [["carol", 50, "x"], ["frank", 20, "y"]])
 
-        result = get_effective_input_path("psi", str(input_file), None)
+        result = get_effective_input_path("psi", str(input_file), None, [])
 
         extracted = read_csv(result)
         assert extracted.shape == (2, 1)
@@ -241,25 +241,25 @@ class TestGetEffectiveInputPath:
     def test_cpsi_server_uses_ids_only(self, tmp_path):
         id_file = tmp_path / "ids.csv"
         id_file.touch()
-        result = get_effective_input_path("cpsi", "full.csv", str(id_file), is_server=True)
+        result = get_effective_input_path("cpsi", "full.csv", str(id_file), [], is_server=True)
         assert result == str(id_file)
 
     def test_cpsi_client_uses_full_input_regardless(self, tmp_path):
         id_file = tmp_path / "ids.csv"
         id_file.touch()
-        result = get_effective_input_path("cpsi", "full.csv", str(id_file), is_server=False)
+        result = get_effective_input_path("cpsi", "full.csv", str(id_file), [], is_server=False)
         assert result == "full.csv"
 
     def test_ps3i_always_uses_full_input(self, tmp_path):
-        result = get_effective_input_path("ps3i", "full.csv", None)
+        result = get_effective_input_path("ps3i", "full.csv", None, [])
         assert result == "full.csv"
 
     def test_ps3i_xor_always_uses_full_input(self, tmp_path):
-        result = get_effective_input_path("ps3i-xor", "full.csv", "ids.csv")
+        result = get_effective_input_path("ps3i-xor", "full.csv", "ids.csv", [])
         assert result == "full.csv"
 
     def test_pid_uses_provided_id_path(self, tmp_path):
         id_file = tmp_path / "ids.csv"
         id_file.touch()
-        result = get_effective_input_path("pid", "full.csv", str(id_file))
+        result = get_effective_input_path("pid", "full.csv", str(id_file), [])
         assert result == str(id_file)

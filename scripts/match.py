@@ -10,8 +10,6 @@ import numpy as np
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-TEMP_FILES = ["alszote.pp", "PrivateID.pp"] # These are always generated with pid anyway
-
 protocol_requirements = {
     "psi": "ids_only",
     "pid": "ids_only",
@@ -37,30 +35,30 @@ def cleanup_temp_files(temp_files):
             logging.debug(f"Error deleting temporary file {temp_file}: {e}")
 
 
-def extract_ids_to_temp(input_path):
+def extract_ids_to_temp(input_path, temp_files):
     id_only_df = pd.read_csv(input_path, header=None, usecols=[0])
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode='w', newline='') as tmp_file:
         id_only_df.to_csv(tmp_file.name, index=False, header=False)
-        TEMP_FILES.append(tmp_file.name)
+        temp_files.append(tmp_file.name)
         logging.info(f"Extracted IDs to temporary file: {tmp_file.name}")
         return tmp_file.name
-    
 
-def get_effective_input_path(protocol_name, input_path, input_id_path, **kwargs):
+
+def get_effective_input_path(protocol_name, input_path, input_id_path, temp_files, **kwargs):
     protocol_input_type = protocol_requirements.get(protocol_name)
-    
+
     if protocol_input_type == "ids_only":
         if input_id_path:
             return input_id_path
         else:
-            return extract_ids_to_temp(input_path)
-        
+            return extract_ids_to_temp(input_path, temp_files)
+
     elif protocol_input_type == "ids_only_receiver":
         if kwargs.get('is_server'):
             if input_id_path:
                 return input_id_path
             else:
-                return extract_ids_to_temp(input_path)
+                return extract_ids_to_temp(input_path, temp_files)
         else:
             if input_id_path:
                 logging.warning(f"Input ID path provided but protocol '{protocol_name}' does not require it. Ignoring {input_id_path}.")
@@ -68,7 +66,7 @@ def get_effective_input_path(protocol_name, input_path, input_id_path, **kwargs)
 
     elif protocol_input_type == "full":
         return input_path
-    
+
     else:
         logging.error(f"Unknown protocol input type for '{protocol_name}'")
         return None
@@ -81,7 +79,7 @@ def post_process_psi(input_path, output_path):
     output_df.to_csv(output_path, index=False, header=False)
 
 
-def post_process_cpsi(input_path, output_path, is_server):
+def post_process_cpsi(input_path, output_path, is_server, temp_files):
     output_df = pd.read_csv(output_path, header=None)
 
     # MP-SPDZ cannot handle hex strings directly so we convert them to integers
@@ -93,18 +91,18 @@ def post_process_cpsi(input_path, output_path, is_server):
     if is_server:
         output_dir = os.path.dirname(output_path)
         mapping_path = os.path.join(output_dir, 'mapping.out')
-        TEMP_FILES.append(mapping_path)
+        temp_files.append(mapping_path)
 
         with open(mapping_path, 'r') as f:
             mapping = np.array(f.read().strip().split('\n'), dtype=int)
 
         input_df = pd.read_csv(input_path, header=None)
         server_columns = pd.DataFrame(
-            0, 
-            index=output_df.index, 
-            columns=input_df.columns[1:], 
+            0,
+            index=output_df.index,
+            columns=input_df.columns[1:],
             dtype=object)
-        
+
         server_df_start = len(output_df.columns)
         output_df = pd.concat([output_df, server_columns], axis=1, ignore_index=True)
 
@@ -113,18 +111,19 @@ def post_process_cpsi(input_path, output_path, is_server):
     output_df.to_csv(output_path, index=False, header=False)
 
 
-def post_process_ps3i_xor(output_path):
+def post_process_ps3i_xor(output_path, temp_files):
     comapny_feature_path = output_path + '_company_feature.csv'
     partner_feature_path = output_path + '_partner_feature.csv'
-    TEMP_FILES.append(comapny_feature_path)
-    TEMP_FILES.append(partner_feature_path)
+    temp_files.append(comapny_feature_path)
+    temp_files.append(partner_feature_path)
     output_df_company = pd.read_csv(comapny_feature_path, header=None)
     output_df_partner = pd.read_csv(partner_feature_path, header=None)
     output_df = pd.concat([output_df_company, output_df_partner], axis=1)
     output_df.to_csv(output_path, index=False, header=False)
 
 
-def post_process_pid(input_path, output_path):
+def post_process_pid(input_path, output_path, temp_files):
+    temp_files.extend(["PrivateID.pp", "alszote.pp"])
     input_df = pd.read_csv(input_path, header=None)
     output_df = pd.read_csv(output_path, header=None, dtype=str)
 
@@ -132,9 +131,9 @@ def post_process_pid(input_path, output_path):
     mapped_indices = mapping_series.loc[output_df.iloc[:len(input_df), 1]].to_numpy()
 
     true_output_df = pd.DataFrame(
-        0, 
-        index=output_df.index, 
-        columns=input_df.columns, 
+        0,
+        index=output_df.index,
+        columns=input_df.columns,
         dtype=object)
 
     true_output_df.iloc[mapped_indices, 0] = 1
@@ -147,15 +146,16 @@ def post_process(protocol_name, input_path, output_path, **kwargs):
     if protocol_name == 'psi':
         post_process_psi(input_path, output_path)
     elif protocol_name == 'cpsi':
-        post_process_cpsi(input_path, output_path, kwargs.get('is_server'))
+        post_process_cpsi(input_path, output_path, kwargs.get('is_server'), kwargs.get('temp_files', []))
     elif protocol_name == 'ps3i':
         pass
     elif protocol_name == 'ps3i-xor':
-        post_process_ps3i_xor(output_path)
+        post_process_ps3i_xor(output_path, kwargs.get('temp_files', []))
     elif protocol_name == 'pid':
-        post_process_pid(input_path, output_path)
+        post_process_pid(input_path, output_path, kwargs.get('temp_files', []))
     else:
         raise RuntimeError(f"No transformation logic defined for '{protocol_name}'")
+
 
 def get_modification_time(file_path):
     try:
@@ -163,31 +163,37 @@ def get_modification_time(file_path):
     except FileNotFoundError:
         return None
 
+
 def run_protocol(protocol_name, input_path, input_id_path, output_path, address, protocol_args):
-    is_server = address.split(':')[0] == '0.0.0.0'
-    check_path = protocol_check_paths[protocol_name](output_path)
-    modification_time = get_modification_time(check_path)
+    temp_files = []
 
-    effective_input_path = get_effective_input_path(protocol_name, input_path, input_id_path, is_server=is_server)
+    try:
+        is_server = address.split(':')[0] == '0.0.0.0'
+        check_path = protocol_check_paths[protocol_name](output_path)
+        modification_time = get_modification_time(check_path)
 
-    protocol_commands = {
-        "psi": lambda: ['./match/volepsi/out/build/linux/frontend/frontend', '-in', effective_input_path, '-out', output_path, '-ip', address, '-r', str(1) if is_server else str(0)] + protocol_args,
-        "cpsi": lambda: ['./match/volepsi/out/build/linux/frontend/frontend', '-cpsi', '-in', effective_input_path, '-out', output_path, '-ip', address, '-r', str(1) if is_server else str(0)] + protocol_args,
-        "ps3i": lambda: ['./match/Private-ID/target/release/cross-psi-server' if is_server else './match/Private-ID/target/release/cross-psi-client', '--input', effective_input_path, '--output', output_path, '--host' if is_server else '--company', address] + protocol_args,
-        "ps3i-xor": lambda: ['./match/Private-ID/target/release/cross-psi-xor-server' if is_server else './match/Private-ID/target/release/cross-psi-xor-client', '--input', effective_input_path, '--output', output_path, '--host' if is_server else '--company', address] + protocol_args,
-        "pid": lambda: ['./match/Kunlun/build/main_pid', '--in', effective_input_path, '--out', output_path, '--address', address] + protocol_args
-    }
+        effective_input_path = get_effective_input_path(protocol_name, input_path, input_id_path, temp_files, is_server=is_server)
 
-    if protocol_name not in protocol_commands:
-        logging.error(f"Unknown protocol: {protocol_name}")
-        sys.exit(1)
+        protocol_commands = {
+            "psi": lambda: ['./match/volepsi/out/build/linux/frontend/frontend', '-in', effective_input_path, '-out', output_path, '-ip', address, '-r', str(1) if is_server else str(0)] + protocol_args,
+            "cpsi": lambda: ['./match/volepsi/out/build/linux/frontend/frontend', '-cpsi', '-in', effective_input_path, '-out', output_path, '-ip', address, '-r', str(1) if is_server else str(0)] + protocol_args,
+            "ps3i": lambda: ['./match/Private-ID/target/release/cross-psi-server' if is_server else './match/Private-ID/target/release/cross-psi-client', '--input', effective_input_path, '--output', output_path, '--host' if is_server else '--company', address] + protocol_args,
+            "ps3i-xor": lambda: ['./match/Private-ID/target/release/cross-psi-xor-server' if is_server else './match/Private-ID/target/release/cross-psi-xor-client', '--input', effective_input_path, '--output', output_path, '--host' if is_server else '--company', address] + protocol_args,
+            "pid": lambda: ['./match/Kunlun/build/main_pid', '--in', effective_input_path, '--out', output_path, '--address', address] + protocol_args
+        }
 
-    cmd = protocol_commands[protocol_name]()
-    logging.info(f"Running {protocol_name} protocol with command: {' '.join(cmd)}")
-    subprocess.run(cmd, text=True, stdout=sys.stdout, stderr=sys.stderr, check=True)
-    if modification_time == get_modification_time(check_path):
-        raise subprocess.CalledProcessError(1, cmd, "Output file not modified. Protocol may have failed or produced no output.")
-    post_process(protocol_name, input_path, output_path, is_server=is_server)
+        if protocol_name not in protocol_commands:
+            logging.error(f"Unknown protocol: {protocol_name}")
+            sys.exit(1)
+
+        cmd = protocol_commands[protocol_name]()
+        logging.info(f"Running {protocol_name} protocol with command: {' '.join(cmd)}")
+        subprocess.run(cmd, text=True, stdout=sys.stdout, stderr=sys.stderr, check=True)
+        if modification_time == get_modification_time(check_path):
+            raise subprocess.CalledProcessError(1, cmd, "Output file not modified. Protocol may have failed or produced no output.")
+        post_process(protocol_name, input_path, output_path, is_server=is_server, temp_files=temp_files)
+    finally:
+        cleanup_temp_files(temp_files)
 
 
 def main():
@@ -209,8 +215,7 @@ def main():
     except Exception as e:
         logging.error(str(e))
         sys.exit(1)
-    finally:
-        cleanup_temp_files(TEMP_FILES)
+
 
 if __name__ == "__main__":
     main()
