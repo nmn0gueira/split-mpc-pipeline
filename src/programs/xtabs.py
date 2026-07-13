@@ -112,7 +112,7 @@ def xtabs_mode(group_by, cat_len_1, cat_len_2):
             geq = counts[cat_1][cat_2] > max_value
             max_value = mux(geq, counts[cat_1][cat_2], max_value)
             eq_max = counts[cat_1][cat_2] == max_value
-            mode = mux(eq_max, cat_2, mode)
+            mode = mux(eq_max, cat_2 + 1, mode)
         modes[cat_1] = mode
     return modes
 
