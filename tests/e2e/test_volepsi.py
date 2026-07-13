@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+from conftest import ALICE_ROWS, BOB_ROWS
 from helpers import (
     compile_program,
     parse_int_array,
@@ -21,24 +22,6 @@ VOLEPSI_CPSI_CLIENT_EXTRA_ARGS = ["-add32"]
 
 SERVER_ADDR = "0.0.0.0:10010"
 CLIENT_ADDR = "127.0.0.1:10010"
-
-ALICE_ROWS = [
-    ("alice001", 0),
-    ("alice002", 1),
-    ("shared001", 0),
-    ("shared002", 0),
-    ("shared003", 1),
-    ("shared004", 1)
-]
-
-BOB_ROWS = [
-    ("bob001", 100),
-    ("bob002", 200),
-    ("shared001", 10),
-    ("shared002", 20),
-    ("shared003", 30),
-    ("shared004", 40)
-]
 
 
 @pytest.mark.requires_volepsi

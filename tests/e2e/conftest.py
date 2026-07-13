@@ -4,6 +4,24 @@ import pytest
 
 from helpers import WORKSPACE
 
+ALICE_ROWS = [
+    ("alice001", 1),
+    ("alice002", 2),
+    ("shared001", 1),
+    ("shared002", 1),
+    ("shared003", 2),
+    ("shared004", 2),
+]
+
+BOB_ROWS = [
+    ("bob001", 100),
+    ("bob002", 200),
+    ("shared001", 10),
+    ("shared002", 20),
+    ("shared003", 30),
+    ("shared004", 40),
+]
+
 VOLEPSI_BIN = os.path.join(WORKSPACE, "match/volepsi/out/build/linux/frontend/frontend")
 PRIVATEID_BIN = os.path.join(WORKSPACE, "match/Private-ID/target/release/cross-psi-server")
 KUNLUN_BIN = os.path.join(WORKSPACE, "match/Kunlun/build/main_pid")
