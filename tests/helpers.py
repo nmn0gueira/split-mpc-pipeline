@@ -53,6 +53,18 @@ def parse_float_array(output):
     return [float(x.strip()) for x in m.group(1).split(",")]
 
 
+def parse_int_matrix(output):
+    arrays = re.findall(r'\[([^\[\]]+)\]', output)
+    assert arrays, f"No matrix found in output:\n{output}"
+    return [[int(x.strip()) for x in a.split(",")] for a in arrays]
+
+
+def parse_float_matrix(output):
+    arrays = re.findall(r'\[([^\[\]]+)\]', output)
+    assert arrays, f"No matrix found in output:\n{output}"
+    return [[float(x.strip()) for x in a.split(",")] for a in arrays]
+
+
 def parse_labeled_float(output, label):
     m = re.search(rf'{re.escape(label)}:\s*(\S+)', output)
     assert m, f"Label '{label}' not found in output:\n{output}"
