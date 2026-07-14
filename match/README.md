@@ -12,87 +12,97 @@ Each submodule includes implementation details and references to the relevant ac
 ## Protocol Notes
 This section will denote some information specific to each (matching) protocol implementation.
 
-For other information on the protocols, such as additional runtime arguments to use or any ther specific implementation details, check the respective submodule's repository.
+For other information on the protocols, such as additional runtime arguments to use or any other specific implementation details, check the respective submodule's repository.
 
-### Private Set Intersection
-#### Example command
+### Private Set Intersection (PSI)
+#### Output format
+One row per item in the intersection, containing the sender's feature columns. Order follows the PSI binary's output.
 ```
-python3 scripts/match.py --input path/to/alice.csv --output path/to/output.csv --address 0.0.0.0:10010 psi
+feature1, feature2, ...
+feature1, feature2, ...
+...
+```
+
+#### Example command
+```bash
+# Bob (server/receiver)
+python3 scripts/match.py --input path/to/bob.csv --output path/to/bob_out.csv --address 0.0.0.0:10010 psi
+# Alice (client/sender)
+python3 scripts/match.py --input path/to/alice.csv --output path/to/alice_out.csv --address 127.0.0.1:10010 psi
 ```
 
 ### Circuit-PSI
 #### Output format
-The output of Circuit-PSI differs between the party that is executing the protocol. Both parties include a first column with a flag bits and a column of shares for each of the sender's features.
+The output of Circuit-PSI differs between the party that is executing the protocol. Both parties include a first column with a flag bits and a column of shares for each of the sender's features. The client/sender will additionally have its own associated data appended.
+
 - Sender
 ```
-0, share1, ...
-1, share2, ...
-0, share3, ...
-0, share4, ...
-..., ..., ...
+flag, share1, ...
+flag, share2, ...
+...
 ```
 - Receiver
 ```
-0, share1, ..., 0, 0, 0
-1, share2, ..., 1, 2, 4
-0, share3, ..., 3, 3, 1
-0, share4, ..., 0, 0, 0
-..., ..., ..., ..., ...,
+flag, share1, ..., own_feature1, ...
+flag, share2, ..., own_feature1, ...
+...
 ```
-The receiver additionally has its own associated data appended to each row.
+The XOR of flag values in the same row indicates if a row is in the intersection.
 
 #### Example command
-Alice (party 0):
+```bash
+# Alice (client/sender, party 0)
+python3 scripts/match.py --input path/to/alice.csv --output path/to/alice_out.csv --address 127.0.0.1:10010 cpsi -add32
+# Bob (server/receiver, party 1)
+python3 scripts/match.py --input path/to/bob.csv --output path/to/bob_out.csv --address 0.0.0.0:10010 cpsi -add32 -senderColumns 1
 ```
-python3 scripts/match.py --input path/to/alice.csv --output path/to/output.csv --address 127.0.0.1:10010 cpsi
-```
-Bob (party 1):
-```
-python3 scripts/match.py --input path/to/bob.csv --output path/to/output.csv --address 0.0.0.0:10010 cpsi -senderColumns 1 -add32
-```
-The `-add32` may be removed if XOR secret sharing is preferred. The MP-SPDZ programs are written to handle input such that Alice has to be party 0 always.
+The `-add32` flag selects additive mod 2^32 secret sharing. Omit it for XOR secret sharing. The current MP-SPDZ programs expect Alice to always be party 0.
 
 ### Private-ID
-#### Example command
+#### Output format
+One row per item in the union of both parties' sets. The first column is a flag (1 if the given party has this row in their set, 0 otherwise), followed by this party's feature values at matched positions and 0 elsewhere.
 ```
-python3 scripts/match.py --input path/to/input.csv --output path/to/output.csv --address 0.0.0.0:10010 pid --log_sender 14 --log_receiver 14
+flag, feature1, ...
+flag, feature1, ...
+...
 ```
+A row is in the intersection if the AND of their flag bits is 1.
 
-The log arguments refer to the expected log 2 size of the set of the given party. To work around this restriction you can specify the closest next log 2 size value to the size of the respective set to pad the set with random identifiers.
+#### Example command
+```bash
+# Bob (server)
+python3 scripts/match.py --input path/to/bob.csv --output path/to/bob_out.csv --address 0.0.0.0:10010 pid --log_sender 14 --log_receiver 14
+# Alice (client)
+python3 scripts/match.py --input path/to/alice.csv --output path/to/alice_out.csv --address 127.0.0.1:10010 pid --log_sender 14 --log_receiver 14
+```
+The `--log_sender` and `--log_receiver` arguments are the log$_2$ of each party's set size. If a set is not an exact power of 2, specify the closest next power of 2 to pad the set with random identifiers automatically.
 
 ### PS3I(-XOR)
 #### Output format
-- PS3I-XOR
-```
-sshare1, ..., ..., cshare1
-sshare2, ..., ..., cshare2
-sshare3, ..., ..., cshare3
-sshare4, ..., ..., cshare4
-..., ..., ..., ...
-```
-The output of PS3I-XOR is such that the CSV containing the secret shares will contain the secret shares for all of the server's features and then the secret shares for all of the client's features.
-
 - PS3I
 ```
 cshare1, sshare1
 cshare2, sshare2
-cshare3, sshare3
-cshare4, sshare4
-..., ...
+...
 ```
-The output of PS3I has the column with the shares of the client first and then the column with the shares of the server. Additionally the implementation of PS3I only allows one feature per party.
+The client's share column comes first, then the server's. PS3I supports only one feature per party. Secret sharing is additive mod 2^64.
+
+- PS3I-XOR
+```
+sshare1, ..., cshare1, ...
+sshare2, ..., cshare2, ...
+...
+```
+All server share columns come first, followed by all client share columns.
 
 #### Example command
-Alice (party 0):
-```
-python3 scripts/match.py --input path/to/alice.csv --output path/to/output.csv --address 0.0.0.0:10010 <ps3i-xor|ps3i> --no-tls
-```
-Bob (party 1):
-```
-python3 scripts/match.py --input path/to/bob.csv --output path/to/output.csv --address http://127.0.0.1:10010 <ps3i-xor|ps3i> --no-tls
+```bash
+# Alice (server, party 0)
+python3 scripts/match.py --input path/to/alice.csv --output path/to/alice_out.csv --address 0.0.0.0:10010 <ps3i|ps3i-xor> --no-tls
+# Bob (client, party 1)
+python3 scripts/match.py --input path/to/bob.csv --output path/to/bob_out.csv --address http://127.0.0.1:10010 <ps3i|ps3i-xor> --no-tls
 ```
 
 
-### Misc
-
-Protocols that output secret shares do not support secret sharing float values.
+## Misc
+Protocols that output secret shares (`cpsi`, `ps3i`, `ps3i-xor`) do not natively support float or negative values, as shares are unsigned integers. This a limitation of the current implementations.
