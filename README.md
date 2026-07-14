@@ -1,13 +1,7 @@
 # Split MPC Pipeline
-This repository contains a practical implementation of a privacy-preserving pipeline using multi-party computation. It focuses on secure dataset matching and subsequent downstream statistical analysis, and is intended as a reference for research and educational purposes.
+This repository contains a practical implementation of a privacy-preserving pipeline using multi-party computation. It focuses on secure dataset matching and subsequent downstream statistical analysis.
 
 The pipeline includes support for protocols such as PSI and Circuit-PSI to privately match datasets between parties as well as MPC programs for use with the MP-SPDZ framework.
-
-## Folder Structure
-- `match/` - Contains submodules implementing protocols for privately matching datasets between parties.
-- `scripts/` - Contains various scripts. Specific scripts mentioned further below.
-- `src/` - Contains source code for the MPC programs used with the MP-SPDZ framework.
-
 
 ## Environment Setup
 Initialize the submodules first:
@@ -113,4 +107,4 @@ python -m pytest tests/ -v
 > End-to-end tests require the relevant matching binaries to be built.
 
 ## About
-This project was developed as part of [Evaluating End-to-End MPC Pipelines for Statistical Data Analysis](#) with the goal of demonstrating secure data collaboration using multi-party computation.
+This project was developed as part of [Evaluating End-to-End MPC Pipelines for Statistical Data Analysis](#) and [Privacy-Preserving Analysis of Misinformation Data](#) with the goal of demonstrating privacy-preserving data analysis using multi-party computation. This is research software and is not intended for production use.
