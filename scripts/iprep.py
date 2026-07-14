@@ -15,6 +15,7 @@ def transform_csv(input_file, output_dir, party, columns=None, do_split=False, s
         train_df, test_df = train_test_split(df, train_size=split_ratio, shuffle=True, random_state=42)
         df = pd.concat([train_df, test_df])
 
+    # MP-SPDZ reads inputs column-major (each get_input_from() call reads one full column)
     df = df.transpose()
 
     output_file = f"{output_dir}/Input-P{party}-0"
