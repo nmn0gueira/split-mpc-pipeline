@@ -6,6 +6,7 @@ modules_to_build=()
 clean_build=false
 verbose=false
 
+module_order=(volepsi privateid kunlun)
 declare -A available_modules=(
     [kunlun]="An OpenSSL wrapper containing an implementation of Private-ID protocol in CZZ24"
     [volepsi]="A repository including PSI and Circuit-PSI protocol implementation of RR22"
@@ -18,26 +19,27 @@ Usage: $0 [--modules <module1,module2,...>] [options]
 
 Build Options:
   --modules <module1,...>        Comma-separated list of modules to build (default: all)
-                                 Available modules: ${!available_modules[@]}
+                                 Available modules: ${module_order[*]}
   --clean                        Clean build artifacts before building
   --verbose                      Enable verbose output
+  --debug                        Enable shell debug tracing (set -x)
 
 Other Options:
   --list-modules                 List available modules and exit
   -h, --help                     Show this help and exit
 EOF
-    exit 1
+    exit "${1:-1}"
 }
 
 vlog() {
     if $verbose; then
-        echo "[verbose] $@"
+        echo "[verbose] $*"
     fi
 }
 
 list_modules() {
     echo "Available modules:"
-    for module in "${!available_modules[@]}"; do
+    for module in "${module_order[@]}"; do
         printf "  %-20s %s\n" "$module" "${available_modules[$module]}"
     done
     exit 0
@@ -67,7 +69,7 @@ parse_args() {
                 shift
                 ;;
             -h|--help)
-                usage
+                usage 0
                 ;;
             *)
                 echo "Invalid argument: $1"
@@ -77,7 +79,7 @@ parse_args() {
     done
 
     if [[ ${#modules_to_build[@]} -eq 0 ]]; then
-        modules_to_build=("${!available_modules[@]}")
+        modules_to_build=("${module_order[@]}")
     fi
 }
 
@@ -122,7 +124,7 @@ build_privateid() (
 
 build_modules() {
     for module in "${modules_to_build[@]}"; do
-        if [[ -n "${available_modules[$module]}" ]]; then
+        if [[ -n "${available_modules[$module]+_}" ]]; then
             echo "Building module: $module (${available_modules[$module]})"
             if [[ $(type -t "build_$module") == function ]]; then
                 "build_$module"
@@ -145,7 +147,7 @@ clean_modules() {
             volepsi)
                 rm -rf match/volepsi/build
                 ;;
-            private-id)
+            privateid)
                 cargo clean --manifest-path match/Private-ID/Cargo.toml
                 ;;
         esac
@@ -154,8 +156,8 @@ clean_modules() {
 
 main() {
     parse_args "$@"
-    echo "Modules to build: ${modules_to_build[@]}"
-    
+    echo "Modules to build: ${modules_to_build[*]}"
+
     if $clean_build; then
         clean_modules
     fi
