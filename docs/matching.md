@@ -1,4 +1,4 @@
-# Matching
+# Matching Protocols
 
 ## Submodules
 These provide the implementations for the protocols used for matching datasets.
@@ -6,13 +6,11 @@ These provide the implementations for the protocols used for matching datasets.
 - `Private-ID` - A collection of algorithms to match records between two or more parties. This project makes use of their PS3I and PS3I-XOR protocol implementations.
 - `volepsi` - A repository including the state-of-the-art PSI and Circuit-PSI protocol implementations.
 
-Each submodule includes implementation details and references to the relevant academic papers. You can read the associated papers for further understanding of the mathematical and cryptographic underpinnings.
+Each submodule includes implementation details and references to the relevant academic papers.
 
 
 ## Protocol Notes
-This section will denote some information specific to each (matching) protocol implementation.
-
-For other information on the protocols, such as additional runtime arguments to use or any other specific implementation details, check the respective submodule's repository.
+For additional runtime arguments or other implementation details, check the respective submodule's repository.
 
 ### Private Set Intersection (PSI)
 #### Output format

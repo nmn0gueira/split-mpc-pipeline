@@ -1,76 +1,116 @@
 # Split MPC Pipeline
-This repository contains a practical implementation of a privacy-preserving pipeline using multi-party computation. It focuses on secure dataset matching and subsequent downstream statistical analysis, and is intended as a reference for research and educational purposes. 
+This repository contains a practical implementation of a privacy-preserving pipeline using multi-party computation. It focuses on secure dataset matching and subsequent downstream statistical analysis, and is intended as a reference for research and educational purposes.
 
-The pipeline includes support for protocols such as Circuit-PSI to privately match datasets between parties as well as example MPC programs for use with the MP-SPDZ framework.
+The pipeline includes support for protocols such as PSI and Circuit-PSI to privately match datasets between parties as well as MPC programs for use with the MP-SPDZ framework.
 
 ## Folder Structure
- - `match/` - Contains submodules implementing protocols for privately matching datasets between parties.
- - `scripts/` - Contains various scripts. Specific scripts mentioned further below.
- - `src/` - Contains source code for the MPC programs used with the MP-SPDZ framework.
+- `match/` - Contains submodules implementing protocols for privately matching datasets between parties.
+- `scripts/` - Contains various scripts. Specific scripts mentioned further below.
+- `src/` - Contains source code for the MPC programs used with the MP-SPDZ framework.
 
- ## Environment Setup
-To simplify the build and setup process, a set of scripts is provided alongside a development container (`.devcontainer/`) that includes all required dependencies.
 
-For building all submodules for the project:
+## Environment Setup
+Initialize the submodules first:
+```bash
+git submodule update --init --recursive
+```
+> If you cloned with `--recurse-submodules` this step is not needed.
+
+### Native
+Build whichever matching protocols you need:
 ```bash
 ./scripts/build_submodules.sh
 ```
-> Modules are independent. You can install only the ones you wish to experiment wish. Use the `-h` flag with the above script for more info.
+> Modules are independent. You can build only the ones you need. Use the `-h` flag for more info.
 
-You will also need to install MP-SPDZ. For that you can run the following script:
+Install MP-SPDZ:
 ```bash
 ./scripts/install.sh
 ```
-This will download the latest release binaries on the current directory. If you wish to compile them yourself you can add a `yes` after the above command. This may take a long time, however.
+This downloads the pre-built release binaries. To build from source instead, pass `yes` as an argument (this may take a long time).
 
+Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Before running any MPC computation, you may need to generate SSL certificates:
+```bash
+cd MP-SPDZ
+Scripts/setup-ssl.sh <n_parties>        # party-to-party certs (required for all runs)
+Scripts/setup-clients.sh <n_parties>    # client certs (required for as-server mode only)
+```
+
+### Docker
+Build the runtime image from the project root. Submodules must be initialized before building if you want matching protocol support:
+```bash
+docker build --target runtime -t split-mpc .
+# To include only specific matching protocols:
+docker build --target runtime --build-arg modules=volepsi -t split-mpc .
+```
+SSL certificates and MP-SPDZ are set up automatically during the image build.
+
+Run the pipeline inside the container by mounting your data and working interactively:
+```bash
+docker run --rm -it -v $(pwd)/data:/workspace/data split-mpc bash
+```
 
 ## Usage
+To generate sample data for experimenting with the pipeline, use `scripts/geninput.py`.
 
-### Dataset Matching
-> The `geninput.py` script is provided to generate sample data for experimenting.
+The recommended way to run the full pipeline is via `pipeline.sh`, which runs all phases from a single config file. Example configs are provided in `config/examples/`. For manual step-by-step usage, see [docs/usage.md](docs/usage.md).
 
-First, you will need to match datasets between parties. This can be done using the `match.py` wrapper script. The script functions as a frontend for running the protocols used for matching. An example command to run the PSI protocol is:
+Each party runs:
 ```bash
-python3 scripts/match.py --protocol psi --input path/to/input.csv --output path/to/output.csv --address 127.0.0.1:10010 psi 
+scripts/pipeline.sh <config_file> [KEY=value ...]
 ```
-The input should be a CSV file that contains the identifiers on the first column. The output will be a CSV file containing matched identifiers and any additional data as specified by the protocol.
-> For more information on protocol output formats, see [match/README.md](match/README.md).
+The config file is a shell script that sets the variables consumed by each phase. Any variable can be overridden inline. Individual phases can be skipped by setting `RUN_MATCH`, `RUN_IPREP`, `RUN_COMPILE`, or `RUN_MPC` to `false` in the config.
 
-
-### Downstream MPC
-
-#### Preparing the required input
-Next we need to prepare the input we want for the downstream MPC. This is done using the `iprep.py` script. This script copies the relevant data to the MP-SPDZ directory relevant to the given party, ready to be used for the desired program. An example command to run the script is:
+#### Direct computation
+All phases run on the data owners' machines. Each party runs the full pipeline sequentially, with matching, input preparation, compilation, and running the MPC program.
 ```bash
-python3 scripts/iprep.py --input path/to/input.csv --party 0 --columns 0,2,3 --transpose --split --split-ratio 0.8
-```
-The data to be copied can be adjusted through optional flags such as selecting only specific columns, transposing the data, and splitting the data into training and testing sets.
-> For the current programs, usage of the `--transpose` flag is required.
-
-#### Compile-and-run program
-Finally, you can specify the downstream MPC program you want to execute. In MP-SPDZ, this means first compiling the program with the appropriate options. For example, to compile a program for executing a 2D histogram computation:
-```bash
-./scripts/compile.sh hist2d.py -R 64 -Z 2 --rows <num_rows> --protocol <protocol_used_before>
-```
-> It is necessary to specify the protocol used in the previous phase so the program knows how to handle input.
-
-Afterwards you can run the program as you would any other MP-SPDZ program. Localhost:
-```bash
-./scripts/run.sh <protocol_script> hist2d
-```
-or on different terminals:
-```bash
-./scripts/run.sh <protocol_binary> 0 hist2d
-./scripts/run.sh <protocol_binary> 1 hist2d
-./scripts/run.sh <protocol_binary> 2 hist2d
+# Alice (terminal 1)
+scripts/pipeline.sh config/examples/direct/alice.sh
+# Bob (terminal 2)
+scripts/pipeline.sh config/examples/direct/bob.sh
 ```
 
-Available programs include:
-- `hist2d`- Computes a 2d histogram.
-- `linreg` - Trains a linear regression model.
-- `xtabs` - Performs a cross-tabulation. Supports multiple aggregations functions and both 1 and 2 columns to group by.
+#### Outsourcing
+Computation is delegated to independent MPC nodes. Data owners (Alice, Bob) run matching and input preparation, then send their data live via `client-input.x`. The compute parties run only compilation and the MPC program.
 
-For more info on a specific program's compilation, use the `--help` flag when compiling.
+Start the compute parties first (they will wait for client connections):
+```bash
+# Compute nodes (terminals 1-3)
+scripts/pipeline.sh config/examples/outsourcing/party0.sh
+scripts/pipeline.sh config/examples/outsourcing/party1.sh
+scripts/pipeline.sh config/examples/outsourcing/party2.sh
+```
+Then run the data owners:
+```bash
+# Alice (terminal 4)
+scripts/pipeline.sh config/examples/outsourcing/alice.sh
+# Bob (terminal 5)
+scripts/pipeline.sh config/examples/outsourcing/bob.sh
+```
+
+
+## Development
+The project includes a devcontainer configuration (`.devcontainer/`) with all dependencies pre-installed. Open the project in VS Code and select **Reopen in Container** to use it.
+
+The MPC programs in `src/programs/` use MP-SPDZ-specific types and APIs. For code completion in VS Code, add the following to `.vscode/settings.json`:
+```json
+{
+    "python.analysis.extraPaths": ["./MP-SPDZ/"],
+    "python.autoComplete.extraPaths": ["./MP-SPDZ/"]
+}
+```
+
+### Tests
+All tests run inside the devcontainer:
+```bash
+python -m pytest tests/ -v
+```
+> End-to-end tests require the relevant matching binaries to be built.
 
 ## About
-This project was developed as part of [Privacy-Preserving Analysis of Misinformation Data](nan) with the goal of demonstrating secure data collaboration using multi-party computation.
+This project was developed as part of [Evaluating End-to-End MPC Pipelines for Statistical Data Analysis](#) with the goal of demonstrating secure data collaboration using multi-party computation.
