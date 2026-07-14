@@ -3,8 +3,9 @@
 {
 	"name": "smp-dev",
 	"build": {
-		"dockerfile": "Dockerfile",
-		"context": ".."
+		"dockerfile": "../Dockerfile",
+		"context": "..",
+		"target": "dev"
 	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
