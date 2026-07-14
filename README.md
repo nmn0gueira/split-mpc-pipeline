@@ -8,7 +8,6 @@ Initialize the submodules first:
 ```bash
 git submodule update --init --recursive
 ```
-> If you cloned with `--recurse-submodules` this step is not needed.
 
 ### Native
 Build whichever matching protocols you need:
@@ -100,7 +99,7 @@ The MPC programs in `src/programs/` use MP-SPDZ-specific types and APIs. For cod
 ```
 
 ### Tests
-All tests run inside the devcontainer:
+Run the tests:
 ```bash
 python -m pytest tests/ -v
 ```
