@@ -1,0 +1,20 @@
+.git/
+.gitignore
+.gitmodules
+.claude/
+.devcontainer/
+.vscode/
+.pytest_cache/
+
+# Recreated by install.sh
+MP-SPDZ/
+
+# Submodule build artifacts
+match/*/build/
+match/*/out/
+match/Private-ID/target/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

@@ -48,12 +48,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 FROM base AS runtime
 
-COPY scripts/ scripts/
-COPY src/ src/
+COPY . .
 
 RUN bash scripts/install.sh
 RUN cd MP-SPDZ && Scripts/setup-ssl.sh 3 && Scripts/setup-clients.sh 3
 
 ARG modules=
-COPY match/ match/
 RUN bash scripts/build_submodules.sh --modules "$modules"
