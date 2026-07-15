@@ -15,11 +15,10 @@ PARTY_BOB = "bob"
 PARTY_PUBLIC = "public"
 BITSIZE = 32
 
-def create_dirs(program):
-    dirname = os.path.join(BASE_DIR, program)
-    if not os.path.exists(dirname):
+def create_dirs(path):
+    if not os.path.exists(path):
         try:
-            os.makedirs(dirname)
+            os.makedirs(path)
         except OSError as e:
             if e.errno != errno.EEXIST: raise
 
@@ -277,12 +276,16 @@ if __name__ == "__main__":
     
     parser.add_argument('-e', default="xtabs", choices = ["xtabs", "linreg", "hist2d"],
         help="Program selection")
-    parser.add_argument('-a', default=10, type=int, 
+    parser.add_argument('-a', default=10, type=int,
         help="Alice's input size (default: 10)")
     parser.add_argument('-b', type=int,
         help="Bob's input size (default: Alice' input size)")
     parser.add_argument('-i', type=int,
         help="Intersection size (default: half of the smallest set size)")
+    parser.add_argument('--base-dir', default=None,
+        help="Output directory for generated CSVs (default: data/<program>)")
+    parser.add_argument('--quiet', action='store_true',
+        help="Suppress expected-value output")
 
     xtabs_group = parser.add_argument_group('XTABS Program Arguments')
     xtabs_group.add_argument('-ca', default=4, type=int, help="Number of categories for Alice (default: 4)")
@@ -300,7 +303,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    create_dirs(args.e)
+    out_dir = args.base_dir if args.base_dir else os.path.join(BASE_DIR, args.e)
+    create_dirs(out_dir)
 
     size_alice = args.a
     size_bob = args.b if args.b else args.a
@@ -315,34 +319,38 @@ if __name__ == "__main__":
         a, b = gen_xtabs_input(size_alice, size_bob, args.ca, args.cb)
         alice_data = pd.concat([alice_data, pd.DataFrame(zip(*a))], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(zip(*b))], axis=1, ignore_index=True)
-        intersection_df = alice_data.merge(bob_data, on=0, how='inner')
-        print_xtabs(intersection_df.iloc[:,1].values, intersection_df.iloc[:,3].values, intersection_df.iloc[:, 4].values)
-    
+        if not args.quiet:
+            intersection_df = alice_data.merge(bob_data, on=0, how='inner')
+            print_xtabs(intersection_df.iloc[:,1].values, intersection_df.iloc[:,3].values, intersection_df.iloc[:, 4].values)
+
     elif args.e == "linreg":
         a, b = gen_linreg_input(size_alice, size_bob, args.xa, args.xb, return_ints=args.return_ints)
         alice_data = pd.concat([alice_data, pd.DataFrame(np.hstack(a))], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(np.hstack(b))], axis=1, ignore_index=True)
-        intersection_df = alice_data.merge(bob_data, on=0, how='inner')
-        features_a = intersection_df.iloc[:, 1: args.xa + 1].values
-        features_b = intersection_df.iloc[:, args.xa + 2: args.xa + args.xb + 2].values
-        X = np.hstack((features_a, features_b))
-        y = intersection_df.iloc[:, -1].values   # Use bob's labels (this will result in alice's features being less correlated with the labels though)
-        print("Training linear regression model with split data into train and test sets.")
-        print_linreg(X, y)
-        print("Training linear regression model without splitting data into train and test sets.")
-        print_linreg(X, y, split=False)
+        if not args.quiet:
+            intersection_df = alice_data.merge(bob_data, on=0, how='inner')
+            features_a = intersection_df.iloc[:, 1: args.xa + 1].values
+            features_b = intersection_df.iloc[:, args.xa + 2: args.xa + args.xb + 2].values
+            X = np.hstack((features_a, features_b))
+            y = intersection_df.iloc[:, -1].values
+            print("Training linear regression model with split data into train and test sets.")
+            print_linreg(X, y)
+            print("Training linear regression model without splitting data into train and test sets.")
+            print_linreg(X, y, split=False)
 
     elif args.e == "hist2d":
         a, b, public_data = gen_hist2d_input(size_alice, size_bob, args.ba, args.bb, round_edges=args.round_edges)
         alice_data = pd.concat([alice_data, pd.DataFrame(a)], axis=1, ignore_index=True)
         bob_data = pd.concat([bob_data, pd.DataFrame(b)], axis=1, ignore_index=True)
-        intersection_df = alice_data.merge(bob_data, on=0, how='inner')
-        public_data = pd.DataFrame(zip(*public_data))
-        print_hist2d(intersection_df.iloc[:,1].values, intersection_df.iloc[:,2].values, public_data.iloc[:,0].values, public_data.iloc[:,1].values)
-    
+        if not args.quiet:
+            intersection_df = alice_data.merge(bob_data, on=0, how='inner')
+            public_data = pd.DataFrame(zip(*public_data))
+            print_hist2d(intersection_df.iloc[:,1].values, intersection_df.iloc[:,2].values, public_data.iloc[:,0].values, public_data.iloc[:,1].values)
+
     else:
         print(f"Unknown program: {args.e}")
-    
-    alice_data.to_csv(os.path.join(BASE_DIR, args.e, f"{PARTY_ALICE}.csv"), index=False, header=False)
-    bob_data.to_csv(os.path.join(BASE_DIR, args.e, f"{PARTY_BOB}.csv"), index=False, header=False)
-    public_data.to_csv(os.path.join(BASE_DIR, args.e, f"{PARTY_PUBLIC}.csv"), index=False, header=False)
+
+    alice_data.to_csv(os.path.join(out_dir, f"{PARTY_ALICE}.csv"), index=False, header=False)
+    bob_data.to_csv(os.path.join(out_dir, f"{PARTY_BOB}.csv"), index=False, header=False)
+    if not public_data.empty:
+        public_data.to_csv(os.path.join(out_dir, f"{PARTY_PUBLIC}.csv"), index=False, header=False)
