@@ -19,18 +19,18 @@ if [ "${RUN_MATCH:-true}" = true ]; then
         --address "$ADDRESS" \
         "$PROTOCOL" \
         $PROTOCOL_ARGS
+    ROWS=$(wc -l < "$MATCHED_OUTPUT")
 fi
 
 if [ "${RUN_IPREP:-true}" = true ]; then
     python scripts/iprep.py \
         --input "$MATCHED_OUTPUT" \
         --party "$PARTY" \
-        --columns "$INPUT_COLUMNS" \
-       
+        --columns "$INPUT_COLUMNS"
 fi
 
 if [ "${RUN_COMPILE:-true}" = true ]; then
-    scripts/compile.sh "$PROGRAM" $COMPILE_FLAGS $PROGRAM_ARGS
+    scripts/compile.sh "$PROGRAM" $COMPILE_FLAGS --rows "$ROWS" $PROGRAM_ARGS
 fi
 
 if [ "${RUN_MPC:-true}" = true ]; then
