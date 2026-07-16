@@ -21,7 +21,7 @@ for override in "$@"; do
 done
 
 if [[ "${RUN_MATCH:-true}" = true ]]; then
-    python scripts/match.py \
+    python3 scripts/match.py \
         --input "$INPUT" \
         --output "$MATCHED_OUTPUT" \
         --address "$ADDRESS" \
@@ -31,7 +31,7 @@ if [[ "${RUN_MATCH:-true}" = true ]]; then
 fi
 
 if [[ "${RUN_IPREP:-true}" = true ]]; then
-    python scripts/iprep.py \
+    python3 scripts/iprep.py \
         --input "$MATCHED_OUTPUT" \
         --party "$PARTY" \
         --columns "$INPUT_COLUMNS"
