@@ -10,7 +10,7 @@ wait_flag() {
     local flag=$1
     echo "INFO: waiting for $(basename "$flag")..."
     while [[ ! -f "$flag" ]]; do
-        sleep 5
+        sleep 2
     done
 }
 
