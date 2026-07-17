@@ -1,7 +1,7 @@
 """
 Verifies the client-input.x and ClientManager socket path for all protocol input types.
 
-xtabs sum is used as the test program. Data is delivered via client-input.x over sockets rather than read from Player-Data by the MPC parties directly.
+Data is delivered via client-input.x over sockets rather than read from Player-Data by the MPC parties directly.
 """
 import time
 
@@ -96,3 +96,86 @@ class TestAsServer:
             "--share-type", "xor",
         )
         assert parse_client_int_outputs(out) == [10, 60]
+
+
+class TestAsServerXtabs2:
+    """Regression test for the matrix output path in as-server mode.
+
+    xtabs-2 returns a Matrix, whose row type is Array — previously this caused
+    get_basic_type to return Array instead of the element type, breaking type_id lookup.
+    """
+
+    COMPILE_ARGS = ["--rows", "4", "--aggregation", "sum", "--group_by", "ab",
+                    "--values", "b", "--n_cat_1", "2", "--n_cat_2", "2"]
+
+    def _run(self, protocol, client0_rows, client1_rows, *extra_compile_args):
+        write_player_input(0, *client0_rows)
+        write_player_input(1, *client1_rows)
+        compile_program("xtabs.py", *MPC_FLAGS, "--protocol", protocol,
+                        *self.COMPILE_ARGS, "--as-server", *extra_compile_args)
+
+        mpc = run_program_background("ring.sh", "xtabs-sum-2")
+        time.sleep(2)
+
+        client0 = start_client_background(0, nparties=3)
+        run_client(1, nparties=3, finish=True)
+
+        mpc_out, mpc_err = mpc.communicate(timeout=60)
+        client0_out, client0_err = client0.communicate(timeout=10)
+
+        if mpc.returncode != 0:
+            pytest.fail(f"MPC run failed:\n{mpc_out}\n{mpc_err}")
+        if client0.returncode != 0:
+            pytest.fail(f"client-input.x failed:\n{client0_out}\n{client0_err}")
+
+        return client0_out
+
+    def test_psi(self):
+        out = self._run("psi",
+            [[1, 1, 2, 2]],
+            [[1, 2, 1, 2], [10, 20, 30, 40]],
+        )
+        assert parse_client_int_outputs(out) == [10, 20, 30, 40]
+
+
+class TestAsServerLinreg:
+    """Verifies that the as-server path works end-to-end for linreg.
+
+    The model weights and bias are sfix values sent back to the client.
+    """
+
+    def _run(self, protocol, client0_rows, client1_rows, *extra_compile_args):
+        write_player_input(0, *client0_rows)
+        write_player_input(1, *client1_rows)
+        compile_program(
+            "linreg.py", *MPC_FLAGS, "--protocol", protocol,
+            "--rows", "4", "--features", "a1b0", "--label", "b",
+            "--n_epochs", "200", "--batch_size", "4", "--test_size", "0",
+            "--as-server", *extra_compile_args,
+        )
+
+        mpc = run_program_background("ring.sh", "linreg")
+        time.sleep(2)
+
+        client0 = start_client_background(0, nparties=3)
+        run_client(1, nparties=3, finish=True)
+
+        mpc_out, mpc_err = mpc.communicate(timeout=60)
+        client0_out, client0_err = client0.communicate(timeout=10)
+
+        if mpc.returncode != 0:
+            pytest.fail(f"MPC run failed:\n{mpc_out}\n{mpc_err}")
+        if client0.returncode != 0:
+            pytest.fail(f"client-input.x failed:\n{client0_out}\n{client0_err}")
+
+        return client0_out
+
+    def test_psi(self):
+        out = self._run("psi",
+            [[1.0, 2.0, 3.0, 4.0]],
+            [[2.0, 4.0, 6.0, 8.0]],
+        )
+        result = parse_client_sfix_outputs(out)
+        assert len(result) >= 2
+        assert abs(result[0] - 2.0) < 0.1, f"weight={result[0]}"
+        assert abs(result[1]) < 0.1, f"bias={result[1]}"
