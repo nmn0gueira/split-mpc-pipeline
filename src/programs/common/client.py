@@ -52,7 +52,7 @@ class ClientManager:
             
         def get_basic_type(val):
             if hasattr(val, 'shape'):
-                return type(val[0])
+                return get_basic_type(val[0])
             else:
                 return type(val)
             
