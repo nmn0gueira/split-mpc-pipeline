@@ -17,6 +17,7 @@ compiler.parser.add_option("--n_cat_2", dest="n_cat_2", default=4, type=int, hel
 compiler.parser.add_option("--aggregation", dest="aggregation", type=str, help="Type of aggregation to be performed (sum, avg, freq, mode, std)")
 compiler.parser.add_option("--group_by", dest="group_by", type=str, help="Columns to group by (2 max) (e.g ab for Alice's first column and Bob's first column)")
 compiler.parser.add_option("--values", dest="values", type=str, help="Value column (not needed for mode and freq.) (e.g b for Bob's column)")
+compiler.parser.add_option("--trunc-pr", dest="trunc_pr", action="store_true", default=False, help="Enable probabilistic truncation (3-party and 4-party honest majority and semi-honest full threshold with 128-bit ring only)")
 
 compiler.parse_args()
 
@@ -165,7 +166,7 @@ def print_compiler_options():
 def main():
     print_compiler_options()
  
-    compiler.prog.use_trunc_pr = True
+    compiler.prog.use_trunc_pr = compiler.options.trunc_pr
     stype_val = sfix if 'fix' in compiler.prog.args else sint
     num_group_by = len(compiler.options.group_by)
 

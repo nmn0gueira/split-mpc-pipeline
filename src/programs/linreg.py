@@ -20,6 +20,7 @@ compiler.parser.add_option("--test_size", dest="test_size", default=0.2, type=fl
 compiler.parser.add_option("--n_epochs", dest="n_epochs", default=100, type=int, help="Number of epochs for SGD linear regression (default: 100)")
 compiler.parser.add_option("--batch_size", dest="batch_size", default=1, type=int, help="Batch size for SGD linear regression (default: 1)")
 compiler.parser.add_option("--learning_rate", dest="learning_rate", default=0.01, type=float, help="Learning rate for SGD linear regression (default: 0.01)")
+compiler.parser.add_option("--trunc-pr", dest="trunc_pr", action="store_true", default=False, help="Enable probabilistic truncation (3-party and 4-party honest majority and semi-honest full threshold only)")
 
 compiler.parse_args()
 
@@ -67,7 +68,7 @@ def print_compiler_options():
 def main():
     print_compiler_options()
     ml.set_n_threads(int(compiler.options.n_threads))
-    compiler.prog.use_trunc_pr = True
+    compiler.prog.use_trunc_pr = compiler.options.trunc_pr
 
     rows_train = round(compiler.options.rows * (1 - compiler.options.test_size))
     rows_test = round(compiler.options.rows * compiler.options.test_size)
