@@ -4,17 +4,21 @@ This repository contains a practical implementation of a privacy-preserving pipe
 The pipeline includes support for protocols such as PSI and Circuit-PSI to privately match datasets between parties as well as MPC programs for use with the MP-SPDZ framework.
 
 ## Environment Setup
+Initialize the submodules first:
+```bash
+git submodule update --init --recursive
+```
 
 ### Native
 Build whichever matching protocols you need:
 ```bash
-./scripts/build_submodules.sh
+bash scripts/build_submodules.sh
 ```
 > Modules are independent. You can build only the ones you need. Use the `-h` flag for more info.
 
 Install MP-SPDZ:
 ```bash
-./scripts/install.sh
+bash scripts/install.sh
 ```
 This downloads the pre-built release binaries. To build from source instead, pass `yes` as an argument (this may take a long time).
 
@@ -31,7 +35,7 @@ Scripts/setup-clients.sh <n_parties>    # client certs (required for as-server m
 ```
 
 ### Docker
-Build the runtime image from the project root:
+Build the runtime image from the project root. Submodules must be initialized before building if you want matching protocol support:
 ```bash
 docker build --target runtime -t split-mpc .
 # To include only specific matching protocols:
@@ -51,7 +55,7 @@ The recommended way to run the full pipeline is via `pipeline.sh`, which runs al
 
 Each party runs:
 ```bash
-scripts/pipeline.sh <config_file> [KEY=value ...]
+bash scripts/pipeline.sh <config_file> [KEY=value ...]
 ```
 The config file is a shell script that sets the variables consumed by each phase. Any variable can be overridden inline. Individual phases can be skipped by setting `RUN_MATCH`, `RUN_IPREP`, `RUN_COMPILE`, or `RUN_MPC` to `false` in the config.
 
@@ -59,9 +63,9 @@ The config file is a shell script that sets the variables consumed by each phase
 All phases run on the data owners' machines. Each party runs the full pipeline sequentially, with matching, input preparation, compilation, and running the MPC program.
 ```bash
 # Alice (terminal 1)
-scripts/pipeline.sh config/examples/direct/alice.sh
+bash scripts/pipeline.sh config/examples/direct/alice.sh
 # Bob (terminal 2)
-scripts/pipeline.sh config/examples/direct/bob.sh
+bash scripts/pipeline.sh config/examples/direct/bob.sh
 ```
 
 #### Outsourcing
@@ -70,16 +74,16 @@ Computation is delegated to independent MPC nodes. Data owners (Alice, Bob) run 
 Start the compute parties first (they will wait for client connections):
 ```bash
 # Compute nodes (terminals 1-3)
-scripts/pipeline.sh config/examples/outsourcing/party0.sh
-scripts/pipeline.sh config/examples/outsourcing/party1.sh
-scripts/pipeline.sh config/examples/outsourcing/party2.sh
+bash scripts/pipeline.sh config/examples/outsourcing/party0.sh
+bash scripts/pipeline.sh config/examples/outsourcing/party1.sh
+bash scripts/pipeline.sh config/examples/outsourcing/party2.sh
 ```
 Then run the data owners:
 ```bash
 # Alice (terminal 4)
-scripts/pipeline.sh config/examples/outsourcing/alice.sh
+bash scripts/pipeline.sh config/examples/outsourcing/alice.sh
 # Bob (terminal 5)
-scripts/pipeline.sh config/examples/outsourcing/bob.sh
+bash scripts/pipeline.sh config/examples/outsourcing/bob.sh
 ```
 
 
@@ -102,4 +106,4 @@ python -m pytest tests/ -v
 > End-to-end tests require the relevant matching binaries to be built.
 
 ## About
-This project was developed as part of an academic research paper with the goal of demonstrating privacy-preserving data analysis using multi-party computation. This is research software and is not intended for production use.
+This project was developed as part of [Evaluating End-to-End MPC Pipelines for Statistical Data Analysis](#) and [Privacy-Preserving Analysis of Misinformation Data](#) with the goal of demonstrating privacy-preserving data analysis using multi-party computation. This is research software and is not intended for production use.

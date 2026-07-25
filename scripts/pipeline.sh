@@ -46,7 +46,7 @@ if [[ -n "${OPERATIONS_DIR:-}" ]]; then
 fi
 
 if [[ "${RUN_COMPILE:-true}" = true ]]; then
-    scripts/compile.sh "$PROGRAM" $COMPILE_FLAGS --rows "$ROWS" $PROGRAM_ARGS
+    bash scripts/compile.sh "$PROGRAM" $COMPILE_FLAGS --rows "$ROWS" $PROGRAM_ARGS
 fi
 
 if [[ -n "${OPERATIONS_DIR:-}" ]]; then
@@ -57,7 +57,7 @@ if [[ -n "${OPERATIONS_DIR:-}" ]]; then
 fi
 
 if [[ "${RUN_MPC:-true}" = true ]]; then
-    scripts/run.sh $MPC_ARGS
+    bash scripts/run.sh $MPC_ARGS
 fi
 
 if [[ -n "${OPERATIONS_DIR:-}" ]]; then
