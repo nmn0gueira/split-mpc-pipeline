@@ -1,0 +1,31 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "crypto"
+version = "0.1.0"
+authors = ["Facebook Inc"]
+edition = "2021"
+
+[dependencies]
+Cupcake = { git = "https://github.com/facebookresearch/Cupcake"}
+curve25519-dalek = { version = "4.1.1", features = ["digest", "rand_core"]}
+num-bigint = { version = "0.4", features = ["rand"] }
+num-integer = "0.1"
+num-traits = "0.2"
+rand = "0.8"
+rand_core = "0.6"
+rayon = "1.8.0"
+serde = {version = "1.0.104", features = ["derive"] }
+sha2 = "0.10.6"
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "paillier_benchmark"
+harness = false
+
+[[bench]]
+name = "cupcake_benchmark"
+harness = false
