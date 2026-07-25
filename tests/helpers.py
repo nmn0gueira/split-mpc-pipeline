@@ -15,7 +15,7 @@ PLAYER_DATA = os.path.join(WORKSPACE, "MP-SPDZ", "Player-Data")
 
 def compile_program(program, *args):
     result = subprocess.run(
-        ["scripts/compile.sh", program, *args],
+        ["bash", "scripts/compile.sh", program, *args],
         capture_output=True, text=True, cwd=WORKSPACE,
     )
     if result.returncode != 0:
@@ -25,7 +25,7 @@ def compile_program(program, *args):
 
 def run_program(script, name):
     result = subprocess.run(
-        ["scripts/run.sh", script, name],
+        ["bash", "scripts/run.sh", script, name],
         capture_output=True, text=True, cwd=WORKSPACE,
     )
     if result.returncode != 0:
@@ -35,7 +35,7 @@ def run_program(script, name):
 
 def run_program_background(script, name):
     return subprocess.Popen(
-        ["scripts/run.sh", script, name],
+        ["bash", "scripts/run.sh", script, name],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, cwd=WORKSPACE,
     )
@@ -80,7 +80,7 @@ def write_player_input(party, *rows):
 
 def start_client_background(client_id, nparties):
     return subprocess.Popen(
-        ["scripts/run.sh", "client-input.x",
+        ["bash", "scripts/run.sh", "client-input.x",
          "--client_id", str(client_id),
          "--nparties", str(nparties)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -90,7 +90,7 @@ def start_client_background(client_id, nparties):
 
 def run_client(client_id, nparties, finish=False):
     args = [
-        "scripts/run.sh", "client-input.x",
+        "bash", "scripts/run.sh", "client-input.x",
         "--client_id", str(client_id),
         "--nparties", str(nparties),
     ]
