@@ -97,7 +97,7 @@ build_kunlun() (
     vlog "Building Kunlun module"
     cd match/Kunlun
     vlog "Running OpenSSL installer"
-    ./install_openssl.sh
+    bash install_openssl.sh
     mkdir -p build
     cd build
     vlog "Running cmake"
