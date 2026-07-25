@@ -4,10 +4,6 @@ This repository contains a practical implementation of a privacy-preserving pipe
 The pipeline includes support for protocols such as PSI and Circuit-PSI to privately match datasets between parties as well as MPC programs for use with the MP-SPDZ framework.
 
 ## Environment Setup
-Initialize the submodules first:
-```bash
-git submodule update --init --recursive
-```
 
 ### Native
 Build whichever matching protocols you need:
@@ -35,7 +31,7 @@ Scripts/setup-clients.sh <n_parties>    # client certs (required for as-server m
 ```
 
 ### Docker
-Build the runtime image from the project root. Submodules must be initialized before building if you want matching protocol support:
+Build the runtime image from the project root:
 ```bash
 docker build --target runtime -t split-mpc .
 # To include only specific matching protocols:
@@ -106,4 +102,4 @@ python -m pytest tests/ -v
 > End-to-end tests require the relevant matching binaries to be built.
 
 ## About
-This project was developed as part of [Evaluating End-to-End MPC Pipelines for Statistical Data Analysis](#) and [Privacy-Preserving Analysis of Misinformation Data](#) with the goal of demonstrating privacy-preserving data analysis using multi-party computation. This is research software and is not intended for production use.
+This project was developed as part of an academic research paper with the goal of demonstrating privacy-preserving data analysis using multi-party computation. This is research software and is not intended for production use.
