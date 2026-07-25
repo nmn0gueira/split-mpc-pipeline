@@ -1,0 +1,13 @@
+INPUT="${INPUT_BASE_DIR}/bob.csv"
+MATCHED_OUTPUT=/tmp/bob_matched.csv
+
+PARTY=1
+ADDRESS=0.0.0.0:10010
+INPUT_COLUMNS=0,1,4
+PROTOCOL=cpsi
+PROTOCOL_ARGS="-add32 -senderColumns 2"
+
+PROGRAM=xtabs.py
+COMPILE_FLAGS="-R 64 -Z 2 -b 100000"
+PROGRAM_ARGS="--protocol cpsi --share-type add32 --aggregation avg --group_by a --values b --trunc-pr"
+MPC_ARGS="replicated-ring-party.x 1 xtabs-avg-1 -h ${NODE_0}"
