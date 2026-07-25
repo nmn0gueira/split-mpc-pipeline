@@ -90,7 +90,7 @@ def start_client_background(client_id, nparties):
 
 def run_client(client_id, nparties, finish=False):
     args = [
-        "scripts/run.sh", "client-input.x",
+        "bash", "scripts/run.sh", "client-input.x",
         "--client_id", str(client_id),
         "--nparties", str(nparties),
     ]
