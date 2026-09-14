@@ -51,7 +51,7 @@ docker run --rm -it -v $(pwd)/data:/workspace/data split-mpc bash
 ## Usage
 To generate sample data for experimenting with the pipeline, use `scripts/geninput.py`.
 
-The recommended way to run the full pipeline is via `pipeline.sh`, which runs all phases from a single config file. Example configs are provided in `config/examples/`. For manual step-by-step usage, see [docs/usage.md](docs/usage.md).
+The recommended way to run the full pipeline is via `pipeline.sh`, which runs all phases from a single config file. Example configs are provided in `etc/example/config/`. For manual step-by-step usage, see [docs/usage.md](docs/usage.md).
 
 Each party runs:
 ```bash
@@ -63,9 +63,9 @@ The config file is a shell script that sets the variables consumed by each phase
 All phases run on the data owners' machines. Each party runs the full pipeline sequentially, with matching, input preparation, compilation, and running the MPC program.
 ```bash
 # Alice (terminal 1)
-bash scripts/pipeline.sh config/examples/direct/alice.sh
+bash scripts/pipeline.sh etc/example/config/direct/alice.sh
 # Bob (terminal 2)
-bash scripts/pipeline.sh config/examples/direct/bob.sh
+bash scripts/pipeline.sh etc/example/config/direct/bob.sh
 ```
 
 #### Outsourcing
@@ -74,16 +74,16 @@ Computation is delegated to independent MPC nodes. Data owners (Alice, Bob) run 
 Start the compute parties first (they will wait for client connections):
 ```bash
 # Compute nodes (terminals 1-3)
-bash scripts/pipeline.sh config/examples/outsourcing/party0.sh
-bash scripts/pipeline.sh config/examples/outsourcing/party1.sh
-bash scripts/pipeline.sh config/examples/outsourcing/party2.sh
+bash scripts/pipeline.sh etc/example/config/outsourcing/party0.sh
+bash scripts/pipeline.sh etc/example/config/outsourcing/party1.sh
+bash scripts/pipeline.sh etc/example/config/outsourcing/party2.sh
 ```
 Then run the data owners:
 ```bash
 # Alice (terminal 4)
-bash scripts/pipeline.sh config/examples/outsourcing/alice.sh
+bash scripts/pipeline.sh etc/example/config/outsourcing/alice.sh
 # Bob (terminal 5)
-bash scripts/pipeline.sh config/examples/outsourcing/bob.sh
+bash scripts/pipeline.sh etc/example/config/outsourcing/bob.sh
 ```
 
 
