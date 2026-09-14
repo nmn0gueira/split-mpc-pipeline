@@ -152,7 +152,6 @@ int main(int argc, char** argv)
     int client_id;
     int nparties;
     std::string input_file;
-    size_t finish;
     int port_base;
     std::vector<std::string> hostnames;
 
@@ -161,7 +160,6 @@ int main(int argc, char** argv)
                 << "  --client_id <client_identifier>          Identifier of this client\n"
                 << "  --nparties <number_of_parties>           Number of SPDZ engines (i.e., computing parties) in the computation\n"
                 << "  --in <input_file>                        Path to input file (default is Player-Data/Input-P{client_id}-0)\n"
-                << "  [--finish]                               Whether to tell SPDZ engines to stop listening for connections\n"
                 << "  [--port_base <port>]                     Port base for SPDZ engine's connections (default 14000)\n"
                 << "  [--hosts <host_1,host_2,...,host_n>]     Hostnames for the SPDZ engines (default localhost * nparties)\n"
                 << std::endl;
@@ -193,7 +191,6 @@ int main(int argc, char** argv)
         client_id   = std::stoi(args.at("--client_id"));
         nparties    = std::stoi(args.at("--nparties"));
         input_file = args.count("--in") ? args.at("--in") : "Player-Data/Input-P" + std::to_string(client_id) + "-0";
-        finish = args.count("--finish") ? std::stoi(args.at("--finish")) : 0;
         port_base = args.count("--port_base") ? std::stoi(args.at("--port_base")) : 14000;
 
         if (args.count("--hosts")) {
@@ -209,7 +206,6 @@ int main(int argc, char** argv)
         std::cout << "client_id: " << client_id << "\n"
                   << "nparties: " << nparties << "\n"
                   << "input: " << input_file << "\n"
-                  << "finish: " << finish << "\n"
                   << "port_base: " << port_base << "\n"
                   << "hosts: ";
         for (const auto& h : hostnames) std::cout << h << ' ';
@@ -230,13 +226,6 @@ int main(int argc, char** argv)
     // Setup connections from this client to each party socket
     Client client(hostnames, port_base, client_id);
     auto& specification = client.specification;
-    auto& sockets = client.sockets;
-    for (int i = 0; i < nparties; i++)
-    {
-        octetStream os;
-        os.store(finish);
-        os.Send(sockets[i]);
-    }
     cout << "Finish setup socket connections to SPDZ engines." << endl;
 
     int type = specification.get<int>();

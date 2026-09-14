@@ -1,9 +1,8 @@
 from Compiler.instructions import closeclientconnection
-from Compiler.library import accept_client_connection, do_while, for_range, if_, listen_for_clients, print_ln, start_timer, stop_timer
-from Compiler.types import Array, MemValue, regint, sint, sfix
+from Compiler.library import accept_client_connection, for_range, listen_for_clients, print_ln, runtime_error_if, start_timer, stop_timer
+from Compiler.types import Array, regint, sint, sfix
 
 PORTNUM = 14000
-MAX_NUM_CLIENTS = 8
 
 
 class ClientManager:
@@ -14,29 +13,23 @@ class ClientManager:
     to them before closing connections.
     """
 
-    def __init__(self):
+    def __init__(self, n_clients):
         listen_for_clients(PORTNUM)
         print_ln('Listening for client connections on base port %s', PORTNUM)
 
-        self.sockets = Array(MAX_NUM_CLIENTS, regint)
-        self.number_clients = MemValue(regint(0))
-        self._client_ids = Array(MAX_NUM_CLIENTS, sint)
-        self._seen = Array(MAX_NUM_CLIENTS, regint)
-        self._seen.assign_all(0)
+        self.number_clients = n_clients
+        self.sockets = Array(n_clients, regint)
+        self._seen = Array(n_clients, regint)
 
         stop_timer()
 
-        @do_while
-        def _accept_all():
+        @for_range(n_clients)
+        def _(i):
             client_socket_id = accept_client_connection(PORTNUM)
-            last = regint.read_from_socket(client_socket_id)
             self.sockets[client_socket_id] = client_socket_id
-            self._client_ids[client_socket_id] = client_socket_id
             self._seen[client_socket_id] = 1
-            @if_(last == 1)
-            def _():
-                self.number_clients.write(client_socket_id + 1)
-            return (sum(self._seen) < self.number_clients) + (self.number_clients == 0)
+
+        runtime_error_if(sum(self._seen) != n_clients, 'connection problems')
 
         start_timer()
 
