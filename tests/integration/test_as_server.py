@@ -97,6 +97,14 @@ class TestAsServer:
         )
         assert parse_client_int_outputs(out) == [10, 60]
 
+    def test_psi_int_beyond_64_bits(self):
+        big = 111111111111111111111111111111
+        out = self._run("psi",
+            [[1, 2, 1, 2]],
+            [[big, 20, big, 40]],
+        )
+        assert parse_client_int_outputs(out) == [(2 * big) % 2**64, 60]
+
 
 class TestAsServerXtabs2:
     """Regression test for the matrix output path in as-server mode.

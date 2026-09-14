@@ -53,7 +53,7 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 
     if (num_type == NumType::Int) {
         for (const auto& s : strs) {
-            values.emplace_back(!s.empty() && s[0] == '-' ? std::stol(s) : (long)std::stoul(s));
+            values.emplace_back(bigint(s));
         }
         return values;
     }
@@ -69,15 +69,16 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 }
 
 
-// stoul fails for Z2<128> outputs (39-digit strings exceed ULONG_MAX) so we do this digit accumulation mod 2^64 to take the low 64 bits of the ring size
-template<class U>
-long long to_signed(const U& val) {
-    std::ostringstream oss;
-    oss << val;
-    unsigned long long u = 0;
-    for (char c : oss.str())
-        if (c >= '0' && c <= '9') u = u * 10 + (c - '0');
-    return (long long)u;
+template<class T>
+bigint to_signed(const T& val) {
+    bigint result;
+    to_signed_bigint(result, val);
+    return result;
+}
+
+template<int K>
+bigint to_signed(const Z2<K>& val) {
+    return SignedZ2<K>(val);
 }
 
 
@@ -93,8 +94,8 @@ void run(const std::vector<std::vector<string>> &data, Client& client)
     int batch_id = 0;
     while(true) {
         std::vector<U> header = client.receive_outputs<T>(2);
-        long long output_length = to_signed(header[0]);
-        long long type_id = to_signed(header[1]);
+        long long output_length = to_signed(header[0]).get_si();
+        long long type_id = to_signed(header[1]).get_si();
 
         if (output_length == -1 && type_id == -1) // Termination header
             return;
@@ -110,7 +111,7 @@ void run(const std::vector<std::vector<string>> &data, Client& client)
 
         else if (type_id == 1) { // sfix
             for (const auto& r : result) {
-                cout << "Output: " << (double)to_signed(r) / exp2(16) << endl;
+                cout << "Output: " << to_signed(r).get_d() / exp2(16) << endl;
             }
         }
 
