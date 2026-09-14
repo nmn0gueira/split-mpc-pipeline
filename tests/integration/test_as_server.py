@@ -27,7 +27,7 @@ class TestAsServer:
         time.sleep(2)
 
         client0 = start_client_background(0, nparties=3)
-        run_client(1, nparties=3, finish=True)
+        run_client(1, nparties=3)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)
@@ -126,7 +126,7 @@ class TestAsServerXtabs2:
         time.sleep(2)
 
         client0 = start_client_background(0, nparties=3)
-        run_client(1, nparties=3, finish=True)
+        run_client(1, nparties=3)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)
@@ -166,7 +166,7 @@ class TestAsServerLinreg:
         time.sleep(2)
 
         client0 = start_client_background(0, nparties=3)
-        run_client(1, nparties=3, finish=True)
+        run_client(1, nparties=3)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)

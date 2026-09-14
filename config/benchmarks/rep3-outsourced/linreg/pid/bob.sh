@@ -16,4 +16,4 @@ case $(basename "$INPUT_BASE_DIR") in
 esac
 PROTOCOL_ARGS="--log_receiver $_log2 --log_sender $_log2"
 
-MPC_ARGS="--delay 2 client-input.x --client_id 1 --nparties 3 --hosts ${NODE_2},${NODE_3},${NODE_4} --finish"
+MPC_ARGS="--delay 2 client-input.x --client_id 1 --nparties 3 --hosts ${NODE_2},${NODE_3},${NODE_4}"

@@ -8,4 +8,4 @@ INPUT_COLUMNS=0,1,4
 PROTOCOL=cpsi
 PROTOCOL_ARGS="-add32 -senderColumns 2"
 
-MPC_ARGS="--delay 2 client-input.x --client_id 1 --nparties 3 --hosts ${NODE_2},${NODE_3},${NODE_4} --finish"
+MPC_ARGS="--delay 2 client-input.x --client_id 1 --nparties 3 --hosts ${NODE_2},${NODE_3},${NODE_4}"

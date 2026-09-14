@@ -9,5 +9,4 @@ PROTOCOL=psi
 PROTOCOL_ARGS=""
 
 # --hosts is unecessary in localhost (just to exemplify)
-# --finish signals the MPC parties to start computation once all clients have connected
-MPC_ARGS="client-input.x --client_id 1 --nparties 3 --hosts localhost,localhost,localhost --finish"
+MPC_ARGS="client-input.x --client_id 1 --nparties 3 --hosts localhost,localhost,localhost"
