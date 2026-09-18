@@ -10,4 +10,4 @@ PROTOCOL_ARGS="--no-tls"
 export RUST_LOG=info
 export RAYON_NUM_THREADS=32
 
-MPC_ARGS="--delay 2 client-input.x --client_id 1 --nparties 3 --hosts ${NODE_2},${NODE_3},${NODE_4}"
+MPC_ARGS="client-input.x --client_id 1 --nparties 3 --hosts ${NODE_2},${NODE_3},${NODE_4}"
