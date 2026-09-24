@@ -56,6 +56,16 @@ class TestAsServer:
         assert abs(result[0] - 5.0) < 0.01
         assert abs(result[1] - 7.0) < 0.01
 
+    def test_psi_float_leading_int_value(self):
+        out = self._run("psi",
+            [[1, 2, 1, 2]],
+            [[0, 2.5, 3.5, 4.5]],
+            "fix",
+        )
+        result = parse_client_sfix_outputs(out)
+        assert abs(result[0] - 3.5) < 0.01
+        assert abs(result[1] - 7.0) < 0.01
+
     def test_pid(self):
         out = self._run("pid",
             [[1, 1, 1, 1], [1, 2, 1, 2]],

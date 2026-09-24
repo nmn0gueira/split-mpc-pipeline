@@ -47,9 +47,17 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
 
     std::vector<T> values;
     values.reserve(strs.size());
-    
-    const std::string& first = strs.front();
-    NumType num_type = detect_number(first);
+
+    NumType num_type = NumType::Int;
+    for (const auto& s : strs) {
+        NumType t = detect_number(s);
+        if (t == NumType::Invalid)
+            throw runtime_error("Vector contains invalid elements");
+        if (t == NumType::Float) {
+            num_type = NumType::Float;
+            break;
+        }
+    }
 
     if (num_type == NumType::Int) {
         for (const auto& s : strs) {
@@ -57,15 +65,11 @@ std::vector<T> wrap_values(const std::vector<string> &strs) {
         }
         return values;
     }
-    
-    if (num_type == NumType::Float) {
-        for (const auto& s : strs) {
-            values.emplace_back(long(round(std::stod(s) * exp2(16))));    // sfix with f = 16
-        }
-        return values;
-    }
 
-    throw runtime_error("Vector contains invalid elements");
+    for (const auto& s : strs) {
+        values.emplace_back(long(round(std::stod(s) * exp2(16))));    // sfix with f = 16
+    }
+    return values;
 }
 
 
