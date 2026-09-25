@@ -55,6 +55,9 @@ When compiled with `--as-server`, the MPC parties wait for live data over socket
 
 # In separate terminals, send inputs from each party (in localhost as well)
 ./scripts/run.sh client-input.x --client_id 0 --nparties 3
-./scripts/run.sh client-input.x --client_id 1 --nparties 3 --finish
+./scripts/run.sh client-input.x --client_id 1 --nparties 3
 ```
-The last client to connect must pass `--finish` to signal the start of computation. By default `client-input.x` connects to `localhost`. You can pass `--host <host_1>,...,<host_n>` to connect to hosts outside of localhost.
+Computation starts automatically once every client has connected. By default `client-input.x` connects to `localhost`. You can pass `--host <host_1>,...,<host_n>` to connect to hosts outside of localhost.
+
+## Multi-node orchestration
+`pipeline.sh` can optionally use exported variables (`OPERATIONS_DIR`/`NODE_SELF`) to help coordinating multiple nodes over a directory shared by all of them. See `etc/example/orchestration/` for the protocol and a runnable reference orchestrator.

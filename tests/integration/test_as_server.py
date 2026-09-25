@@ -27,7 +27,7 @@ class TestAsServer:
         time.sleep(2)
 
         client0 = start_client_background(0, nparties=3)
-        run_client(1, nparties=3, finish=True)
+        run_client(1, nparties=3)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)
@@ -54,6 +54,16 @@ class TestAsServer:
         )
         result = parse_client_sfix_outputs(out)
         assert abs(result[0] - 5.0) < 0.01
+        assert abs(result[1] - 7.0) < 0.01
+
+    def test_psi_float_leading_int_value(self):
+        out = self._run("psi",
+            [[1, 2, 1, 2]],
+            [[0, 2.5, 3.5, 4.5]],
+            "fix",
+        )
+        result = parse_client_sfix_outputs(out)
+        assert abs(result[0] - 3.5) < 0.01
         assert abs(result[1] - 7.0) < 0.01
 
     def test_pid(self):
@@ -97,6 +107,14 @@ class TestAsServer:
         )
         assert parse_client_int_outputs(out) == [10, 60]
 
+    def test_psi_int_beyond_64_bits(self):
+        big = 111111111111111111111111111111
+        out = self._run("psi",
+            [[1, 2, 1, 2]],
+            [[big, 20, big, 40]],
+        )
+        assert parse_client_int_outputs(out) == [(2 * big) % 2**64, 60]
+
 
 class TestAsServerXtabs2:
     """Regression test for the matrix output path in as-server mode.
@@ -118,7 +136,7 @@ class TestAsServerXtabs2:
         time.sleep(2)
 
         client0 = start_client_background(0, nparties=3)
-        run_client(1, nparties=3, finish=True)
+        run_client(1, nparties=3)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)
@@ -158,7 +176,7 @@ class TestAsServerLinreg:
         time.sleep(2)
 
         client0 = start_client_background(0, nparties=3)
-        run_client(1, nparties=3, finish=True)
+        run_client(1, nparties=3)
 
         mpc_out, mpc_err = mpc.communicate(timeout=60)
         client0_out, client0_err = client0.communicate(timeout=10)

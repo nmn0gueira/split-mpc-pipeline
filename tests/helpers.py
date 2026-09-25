@@ -88,14 +88,12 @@ def start_client_background(client_id, nparties):
     )
 
 
-def run_client(client_id, nparties, finish=False):
+def run_client(client_id, nparties):
     args = [
         "bash", "scripts/run.sh", "client-input.x",
         "--client_id", str(client_id),
         "--nparties", str(nparties),
     ]
-    if finish:
-        args.append("--finish")
     result = subprocess.run(args, capture_output=True, text=True, cwd=WORKSPACE)
     if result.returncode != 0:
         pytest.fail(f"client-input.x failed:\n{result.stdout}\n{result.stderr}")

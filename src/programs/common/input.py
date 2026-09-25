@@ -53,7 +53,7 @@ class Input:
     """
     def __init__(self, as_server):
         self.as_server = as_server
-        self.client = ClientManager() if as_server else None
+        self.client = ClientManager(2) if as_server else None  # hard-coded 2 for now
         if as_server:
             self._get_input_from = lambda party, rows, st: st.receive_from_client(1, self.client.sockets[party], size=rows)[0]
         else:
