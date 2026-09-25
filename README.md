@@ -4,11 +4,6 @@ This repository contains a practical implementation of a privacy-preserving pipe
 The pipeline includes support for protocols such as PSI and Circuit-PSI to privately match datasets between parties as well as MPC programs for use with the MP-SPDZ framework.
 
 ## Environment Setup
-Initialize the submodules first:
-```bash
-git submodule update --init --recursive
-```
-
 ### Native
 Build whichever matching protocols you need:
 ```bash
